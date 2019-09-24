@@ -26,27 +26,18 @@ def create_images_from_video():
     print("Done!")
 
 def load_images():
-    images =  []
-    count = 0
     videoFile = "../data/test.mp4"
     cap = cv2.VideoCapture(videoFile)  # capturing the video from the given path
-    frameRate = cap.get(5)  # frame rate
-    x = 1
     while (cap.isOpened()):
-        frameId = cap.get(1)  # current frame number
         ret, frame = cap.read() ## Frame is the image data we need
         if (ret != True):
             break
-        if (frameId % math.floor(frameRate) == 0):
-            filename = "../output/frames/frame%d.png" % count;
-            count += 1
-        images.append(frame)
+        yield frame
     cap.release()
-    print("Done!")
-    return np.array(images)
 
 if __name__ == '__main__':
     # create_images_from_video()
-    images = load_images()
-    print(images)
-    print(images.shape)
+    for i in load_images():
+        print(i.shape)
+        plt.imshow(i)
+        plt.show()
