@@ -4,7 +4,6 @@ import matplotlib
 
 from util import VideoLoader
 
-matplotlib.use("Agg")
 import tensorflow as tf
 # import the necessary packages
 from keras.preprocessing.image import ImageDataGenerator
@@ -73,7 +72,7 @@ if __name__ == '__main__':
     scale_factor = 100
     image_shape = (int(720/scale_factor), int(1280/scale_factor), 3)
     epochs = 10
-    batch_size = 1
+    batch_size = 2
     model = autoencoder(image_shape)
 
     print(model)
@@ -87,4 +86,16 @@ if __name__ == '__main__':
         i = resize(i,(batch_size, *image_shape))
         print(i.shape)
         model.fit(i,i)
+        break
+    pred_batch_size = 1
+    for i in VideoLoader.load_images(path='data/test.mp4', batch_size=pred_batch_size):
+        plt.imshow(i[0])
+        plt.show()
+
+        i = i / 255
+        i = resize(i,(pred_batch_size, *image_shape))
+        pred = model.predict(i)
+        for p in pred:
+            plt.imshow(p)
+            plt.show()
         break
