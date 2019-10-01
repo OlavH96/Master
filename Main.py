@@ -27,12 +27,14 @@ import argparse
 import pickle
 import cv2
 import os
+
+
 def autoencoder(image_shape):
     image_x = image_shape[0]
     image_y = image_shape[1]
     image_z = image_shape[2]
 
-    total_pixels = image_y* image_x * image_z
+    total_pixels = image_y * image_x * image_z
     translator_factor = 2
     translator_layer_size = int(total_pixels / translator_factor)
     middle_factor = 2
@@ -63,39 +65,41 @@ def autoencoder(image_shape):
                   metrics=["mean_squared_error"])
     return model
 
+
 if __name__ == '__main__':
 
-    config = tf.ConfigProto(device_count={'CPU': 1})
+    config = tf.ConfigProto(device_count={'CPU': 2})
     sess = tf.Session(config=config)
     keras.backend.set_session(sess)
 
-    scale_factor = 100
-    image_shape = (int(720/scale_factor), int(1280/scale_factor), 3)
-    epochs = 10
-    batch_size = 2
+    scale_factor = 30
+    actual_image_shape = (720, 1280, 3)
+    image_shape = (
+        int(actual_image_shape[0] / scale_factor),
+        int(actual_image_shape[1] / scale_factor),
+        actual_image_shape[2]
+    )
+    epochs = 1
     model = autoencoder(image_shape)
+    path = 'data/test.mp4'
 
-    print(model)
+    def image_generator():
+        for i in VideoLoader.load_images(path=path):
+            i = i / 255
+            i = resize(i, (1, *image_shape))
+            yield (i, i)
 
-    from tensorflow.python.client import device_lib
-    print(device_lib.list_local_devices())
-
-    for i in VideoLoader.load_images(path='data/test.mp4', batch_size=batch_size):
-        i = i / 255
-        print(image_shape)
-        i = resize(i,(batch_size, *image_shape))
-        print(i.shape)
-        model.fit(i,i)
-        break
-    pred_batch_size = 1
-    for i in VideoLoader.load_images(path='data/test.mp4', batch_size=pred_batch_size):
-        plt.imshow(i[0])
+    model.fit_generator(image_generator(), epochs=epochs, steps_per_epoch=len(os.listdir('output/frames')))
+    model.save('model.h5')
+    for i in VideoLoader.load_images(path=path):
+        plt.imshow(i)
         plt.show()
 
         i = i / 255
-        i = resize(i,(pred_batch_size, *image_shape))
+        i = resize(i, (1, *image_shape))
         pred = model.predict(i)
         for p in pred:
+            p = resize(p, actual_image_shape)
             plt.imshow(p)
             plt.show()
         break
