@@ -25,14 +25,19 @@ def create_images_from_video():
     cap.release()
     print("Done!")
 
-def load_images():
-    videoFile = "../data/test.mp4"
-    cap = cv2.VideoCapture(videoFile)  # capturing the video from the given path
+def load_images(path, batch_size=10):
+    cap = cv2.VideoCapture(path)  # capturing the video from the given path
+    batch = []
+    i = 0
     while (cap.isOpened()):
         ret, frame = cap.read() ## Frame is the image data we need
+        batch.append(frame)
         if (ret != True):
             break
-        yield frame
+        if i % batch_size == 0:
+            yield np.array(batch)
+            batch = []
+        i+=1
     cap.release()
 
 if __name__ == '__main__':
