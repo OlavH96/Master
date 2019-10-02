@@ -89,7 +89,10 @@ if __name__ == '__main__':
             i = resize(i, (1, *image_shape))
             yield (i, i)
 
-    model.fit_generator(image_generator(), epochs=epochs, steps_per_epoch=len(os.listdir('output/frames')))
+
+    epoch_steps = len(os.listdir('output/frames'))
+    model.fit_generator(image_generator(), epochs=epochs, steps_per_epoch=10)
+
     model.save('model.h5')
     for i in VideoLoader.load_images(path=path):
         plt.imshow(i)
