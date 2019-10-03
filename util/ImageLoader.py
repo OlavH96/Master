@@ -19,9 +19,7 @@ def load_images(path):
 
 def center_image_with_padding(image, x, y):
     old_size = image.size  # old_size[0] is in (width, height) format
-
-    ratio = float(x) / max(old_size)
-    new_size = tuple([int(x * ratio) for x in old_size])
+    new_size = old_size
     delta_w = x - new_size[0]
     delta_h = y - new_size[1]
     padding = (delta_w / 2,  # left
