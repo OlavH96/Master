@@ -1,66 +1,122 @@
-from prepare.Downloader import get_observations_with_video
+import configparser
+from pathlib import Path
+from datetime import timedelta
+from prepare.Downloader import get_observations_with_video, download_videos_if_not_exists, tie_observations_to_videos
 import cv2
-import numpy as np
+from dateutil import parser
 
 
-def create_text_to_display(create_text_from, frame_number, text_index):
-    total_number_of_frames = number_of_frames
-    frames_per = int(total_number_of_frames / len(create_text_from))
-    frame_index = int(frame_number / frames_per)
-    value = create_text_from[frame_index]
+def create_black_box(num_texts):
+    cv2.rectangle(frame,
+                  (0, 0),
+                  (frame.shape[1], (num_texts + 1) * 30),
+                  (0, 0, 0),
+                  cv2.FILLED)
+
+
+def nearest(items, pivot):
+    return min(items, key=lambda x: abs(x - pivot))
+
+
+def create_text_to_display(create_text_from, text_index, index):
+    value = create_text_from[index]
 
     text_to_write = f'{value}'
 
     font = cv2.FONT_HERSHEY_SIMPLEX
-    fontScale = 1
-    fontColor = (255, 255, 255)
-    lineType = 2
-    text_width, text_height = cv2.getTextSize(text_to_write, font, fontScale, lineType)[0]
-    topLeft = (0, 10 * text_index + (text_height * (text_index + 1)))
-    # Display the resulting frame
+    font_scale = 1
+    font_color = (255, 255, 255)
+    line_type = 2
+    text_width, text_height = cv2.getTextSize(text_to_write, font, font_scale, line_type)[0]
+    top_left = (0, 10 * text_index + (text_height * (text_index + 1)))
+
     cv2.putText(img=frame,
                 text=text_to_write,
-                org=topLeft,
-                color=fontColor,
+                org=top_left,
+                color=font_color,
                 fontFace=font,
-                fontScale=fontScale
+                fontScale=font_scale
                 )
 
+def create_data_for_observation(o):
+    location_measurements = o['location_measurements']
+    parameters_to_include = [
+        'DIRECTION',
+        'SURFACE_STATE_CV',
+        'ROAD_WEATHER_CV',
+        'GUARD_RAIL_LEFT_CV',
+        'GUARD_RAIL_RIGHT_CV',
+    ]
+    location_measurements = list(
+        filter(lambda l: l['parameter_type'] in parameters_to_include, location_measurements))
+    location_measurements_values = list(map(lambda measure:
+                                            list(
+                                                map(lambda rw: f'{measure["parameter_type"]}: {rw}',
+                                                    measure['measurements'])
+                                            )
+                                            ,
+                                            location_measurements))
+
+    to_observe = [
+        o['location_times'],  # Time
+        o['locations']['coordinates'],  # Coordinates
+        [a[1] for a in o['address']],  # Vegreferanse ? område
+        ['+' + str(int(a[2])) + 'm' for a in o['address']],  # vegref + meter
+        *location_measurements_values
+    ]
+    return to_observe
 
 if __name__ == '__main__':
 
+    root_dir = Path.cwd().parent
+
+    config = configparser.ConfigParser()
+    config.read(root_dir / 'config.ini')
+    output_dir = config['Directories']['downloaded_videos']
+    output_dir = root_dir / output_dir
+
     observations = get_observations_with_video()
+    download_videos_if_not_exists(observations)
+    tie_observations_to_videos(observations)
+    print(len(observations))
 
     for o in observations:
-        to_observe = [
-            o['location_times'],
-            o['locations']['coordinates'],
-            [a[1] for a in o['address']],
-            ['+'+str(int(a[2]))+'m' for a in o['address']],
-        ]
 
-        for t in to_observe:
-            print(len(t))
+        location_times = o['location_times']
+        location_times = [parser.parse(t) for t in location_times]
+        start_time = location_times[0]
+        to_observe = create_data_for_observation(o)
 
         video = o['video_file']
         cap = cv2.VideoCapture(str(video))
         number_of_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
-        frame_number = 1
+        total_time_seconds = 60 * 5
+        time_per_frame = total_time_seconds / number_of_frames
 
+        new_time = start_time
         while (cap.isOpened()):
 
             # Capture frame-by-frame
             ret, frame = cap.read()
-            if ret == True:
+            if ret:
+                new_time = new_time + timedelta(seconds=time_per_frame)
+                nearest_time = nearest(location_times, new_time)
+                time_index = location_times.index(nearest_time)
 
+                # create_black_box(len(to_observe))
                 for i, v in enumerate(to_observe):
-                    create_text_to_display(v, frame_number, i)
+                    create_text_to_display(v, i, time_index)
 
                 cv2.imshow('Frame', frame)
-                frame_number += 1
-                # Press Q on keyboard to  exit
-                if cv2.waitKey(25) & 0xFF == ord('q'):
+
+                key = cv2.waitKey(25)
+                if key == ord('q'):
                     break
+                if key == ord('p'):
+                    waiting = True
+                    while waiting:
+                        if cv2.waitKey(25) & 0xFF == ord('p'):
+                            waiting = False
 
             # Break the loop
             else:

@@ -2,9 +2,24 @@ from roadai.api import Api
 import configparser
 import os
 from pathlib import Path
+import logging as logger
+
+logger.getLogger().setLevel(logger.INFO)
+root_dir = Path.cwd().parent
+
+config = configparser.ConfigParser()
+config.read(root_dir / 'config.ini')
+username = config['RoadAI']['username']
+password = config['RoadAI']['password']
+output_dir = config['Directories']['downloaded_videos']
+output_dir = root_dir / output_dir
+
+api = Api()
+auth = api.login(username, password)
 
 
-def download_videos(observations, output_dir):
+def download_videos(observations):
+    logger.info(f'Downloading {len(observations)} videos')
     if not output_dir.exists():
         output_dir.mkdir()
     for i, obs in enumerate(observations):
@@ -16,40 +31,40 @@ def download_videos(observations, output_dir):
             os.system(download_command)
 
 
-def tie_observations_to_videos(observations, downloaded_videos_path):
-    videos = os.listdir(downloaded_videos_path)
+def tie_observations_to_videos(observations):
+    videos = os.listdir(output_dir)
     for i, obs in enumerate(observations):
         id = obs['_id']
         video_name = f'{id}.mp4'
 
         video_is_downloaded = video_name in videos
         if video_is_downloaded:
-            video = downloaded_videos_path / video_name
+            video = output_dir / video_name
             obs['video_file'] = video
+
+
 def get_observations_with_video():
-
-    root_dir = Path.cwd().parent
-
-    config = configparser.ConfigParser()
-    config.read(root_dir / 'config.ini')
-    username = config['RoadAI']['username']
-    password = config['RoadAI']['password']
-    output_dir = config['Directories']['downloaded_videos']
-    output_dir = root_dir / output_dir
-
-    api = Api()
-    auth = api.login(username, password)
-
     shares = api.shares()
-    # for share in shares:
-    #     print(share)
-
+    # for s in shares:
+    #     print(s)
     query = {
         "share_id": shares[2]["id"],
-        "limit": 10
+        "limit": 30
     }
     observations = api.mobileObservations(**query)
+    # print(len(observations))
+    # for o in observations:
+    #     print(o['video_url_hd'])
+
     observations = list(filter(lambda o: o['video_url_hd'] != None, observations))
-    # download_videos(observations, output_dir)
-    tie_observations_to_videos(observations, output_dir)
+    # print(len(observations))
+    logger.info(f'Found {len(observations)} observations with video')
     return observations
+
+
+def download_videos_if_not_exists(observations):
+    exists = os.listdir(output_dir)
+    exists = list(map(lambda e: e.split('.')[0], exists))
+
+    not_downloaded = list(filter(lambda o: o['_id'] not in exists, observations))
+    download_videos(not_downloaded)
