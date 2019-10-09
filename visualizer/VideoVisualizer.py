@@ -6,6 +6,13 @@ from prepare.Downloader import get_observations_with_video, download_videos_if_n
 import cv2
 from dateutil import parser
 
+root_dir = Path.cwd().parent
+
+config = configparser.ConfigParser()
+config.read(root_dir / 'config.ini')
+output_dir = config['Directories']['downloaded_videos']
+output_dir = root_dir / output_dir
+
 
 def create_black_box(num_texts):
     cv2.rectangle(frame,
@@ -44,10 +51,14 @@ def create_data_for_observation(o):
     location_measurements = o['location_measurements']
     for l in location_measurements:
         print(l)
+    print()
     parameters_to_include = [
         'DIRECTION',
         'SURFACE_STATE_CV',
         'ROAD_WEATHER_CV',
+        'SURFACE_TYPE_CV',
+        'CRACKING_CV',
+        'POTHOLING_CV',
         'GUARD_RAIL_LEFT_CV',
         'GUARD_RAIL_RIGHT_CV',
     ]
@@ -72,13 +83,6 @@ def create_data_for_observation(o):
 
 
 if __name__ == '__main__':
-
-    root_dir = Path.cwd().parent
-
-    config = configparser.ConfigParser()
-    config.read(root_dir / 'config.ini')
-    output_dir = config['Directories']['downloaded_videos']
-    output_dir = root_dir / output_dir
 
     # observations = get_observations_with_video()
     # download_videos_if_not_exists(observations)
@@ -126,4 +130,3 @@ if __name__ == '__main__':
             # Break the loop
             else:
                 exit(1)
-        exit(1)
