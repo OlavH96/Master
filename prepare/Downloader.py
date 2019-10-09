@@ -3,6 +3,7 @@ import configparser
 import os
 from pathlib import Path
 import logging as logger
+import pickle
 
 logger.getLogger().setLevel(logger.INFO)
 root_dir = Path.cwd().parent
@@ -13,6 +14,9 @@ username = config['RoadAI']['username']
 password = config['RoadAI']['password']
 output_dir = config['Directories']['downloaded_videos']
 output_dir = root_dir / output_dir
+
+saved_observations_dir = config['Directories']['saved_observations']
+saved_observations_dir = root_dir / saved_observations_dir
 
 api = Api()
 auth = api.login(username, password)
@@ -48,8 +52,8 @@ def get_observations_with_video():
     # for s in shares:
     #     print(s)
     query = {
-        "share_id": shares[2]["id"],
-        "limit": 30
+        "share_id": shares[0]["id"],
+        "limit": 10
     }
     observations = api.mobileObservations(**query)
     # print(len(observations))
@@ -68,3 +72,20 @@ def download_videos_if_not_exists(observations):
 
     not_downloaded = list(filter(lambda o: o['_id'] not in exists, observations))
     download_videos(not_downloaded)
+
+
+def save_observations_as_json(observations):
+    if not saved_observations_dir.exists():
+        saved_observations_dir.mkdir()
+    for o in observations:
+        with open(f"{saved_observations_dir}/{o['_id']}.pkl", 'wb') as f:
+            pickle.dump(o, f, 0)
+
+
+def load_observations_from_json():
+    observations = []
+    for filename in os.listdir(saved_observations_dir):
+        with open(saved_observations_dir / filename, 'rb') as file:
+            observations.append(pickle.load(file))
+
+    return observations

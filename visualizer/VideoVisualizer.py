@@ -1,7 +1,8 @@
 import configparser
 from pathlib import Path
 from datetime import timedelta
-from prepare.Downloader import get_observations_with_video, download_videos_if_not_exists, tie_observations_to_videos
+from prepare.Downloader import get_observations_with_video, download_videos_if_not_exists, tie_observations_to_videos, \
+    save_observations_as_json, load_observations_from_json
 import cv2
 from dateutil import parser
 
@@ -38,8 +39,11 @@ def create_text_to_display(create_text_from, text_index, index):
                 fontScale=font_scale
                 )
 
+
 def create_data_for_observation(o):
     location_measurements = o['location_measurements']
+    for l in location_measurements:
+        print(l)
     parameters_to_include = [
         'DIRECTION',
         'SURFACE_STATE_CV',
@@ -66,6 +70,7 @@ def create_data_for_observation(o):
     ]
     return to_observe
 
+
 if __name__ == '__main__':
 
     root_dir = Path.cwd().parent
@@ -75,11 +80,11 @@ if __name__ == '__main__':
     output_dir = config['Directories']['downloaded_videos']
     output_dir = root_dir / output_dir
 
-    observations = get_observations_with_video()
-    download_videos_if_not_exists(observations)
-    tie_observations_to_videos(observations)
-    print(len(observations))
-
+    # observations = get_observations_with_video()
+    # download_videos_if_not_exists(observations)
+    # tie_observations_to_videos(observations)
+    # save_observations_as_json(observations)
+    observations = load_observations_from_json()
     for o in observations:
 
         location_times = o['location_times']
