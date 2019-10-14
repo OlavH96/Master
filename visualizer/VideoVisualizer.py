@@ -1,10 +1,19 @@
 import configparser
 from pathlib import Path
 from datetime import timedelta
+
+import numpy as np
+
 from prepare.Downloader import get_observations_with_video, download_videos_if_not_exists, tie_observations_to_videos, \
     save_observations_as_json, load_observations_from_json
 import cv2
 from dateutil import parser
+from sign_detection.image_generation.objectdetection import download_model, load_category_index, \
+    run_inference_for_single_image, load_frozen_model
+from utils import label_map_util
+
+from utils import visualization_utils as vis_util
+from matplotlib import pyplot as plt
 
 root_dir = Path.cwd().parent
 
@@ -82,12 +91,37 @@ def create_data_for_observation(o):
     return to_observe
 
 
+def applyCV(frame, graph, categories):
+    data = np.expand_dims(frame, axis=0)
+    output_dict = run_inference_for_single_image(data, graph)
+    print(type(data))
+    print(data.shape)
+    print(type(output_dict))
+    print(output_dict.keys())
+    print("num detections", output_dict['num_detections'])
+    data = data[0]
+    print(data.shape)
+    vis_util.visualize_boxes_and_labels_on_image_array(
+        data,
+        output_dict['detection_boxes'],
+        output_dict['detection_classes'],
+        output_dict['detection_scores'],
+        categories,
+        #instance_masks=output_dict.get('detection_masks'),
+        use_normalized_coordinates=True,
+        line_thickness=8)
+    return data
+
+
 if __name__ == '__main__':
 
     # observations = get_observations_with_video()
     # download_videos_if_not_exists(observations)
     # tie_observations_to_videos(observations)
     # save_observations_as_json(observations)
+
+    graph = load_frozen_model()
+    categories = load_category_index()
     observations = load_observations_from_json()
     for o in observations:
 
@@ -112,15 +146,22 @@ if __name__ == '__main__':
                 nearest_time = nearest(location_times, new_time)
                 time_index = location_times.index(nearest_time)
 
+                result = applyCV(frame, graph, categories)
                 # create_black_box(len(to_observe))
-                for i, v in enumerate(to_observe):
-                    create_text_to_display(v, i, time_index)
 
-                cv2.imshow('Frame', frame)
+                # for i, v in enumerate(to_observe):
+                #     create_text_to_display(v, i, time_index)
+
+                # plt.imshow(result)
+                # plt.savefig('test.png')
+                cv2.imshow('Frame', result)
+
 
                 key = cv2.waitKey(25)
                 if key == ord('q'):
                     break
+                if key == ord('e'):
+                    exit(1)
                 if key == ord('p'):
                     waiting = True
                     while waiting:
