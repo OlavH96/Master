@@ -6,13 +6,12 @@ import numpy as np
 from multiprocessing import Process, Queue, cpu_count
 from PIL import Image, ImageFilter, ImageOps
 
-
 class Background:
     BACKGROUND_PATH = 'image_generation/backgrounds'
 
     def __init__(self, size=None):
         if size is None:
-            size=(int(os.environ['IMAGE_WIDTH']), int(os.environ['IMAGE_HEIGHT']))
+            size=(640, 480)
         background_images = os.listdir(self.BACKGROUND_PATH)
         self.size = size
         self.backgrounds = [Image.open(os.path.join(self.BACKGROUND_PATH, image)).convert("RGBA").resize(self.size)
@@ -24,7 +23,7 @@ class Background:
 
 
 class Sign:
-    SIGN_PATH = 'image_generation/signs'
+    SIGN_PATH = 'image_generation/signs/png'
 
     def __init__(self):
         sign_paths = sorted(os.listdir(self.SIGN_PATH))
@@ -147,7 +146,7 @@ def generate(count):
         tasks.put(i)
 
     workers = []
-    for i in range(cpu_count()):
+    for i in range(cpu_count()/2):
         workers.append(Generator(tasks, results))
 
     for worker in workers:
@@ -169,4 +168,4 @@ def generate(count):
                 f.write(data)
 
 if __name__ == '__main__':
-    generate(int(os.environ['IMAGE_COUNT']))
+    generate(10)

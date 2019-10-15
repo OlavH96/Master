@@ -14,6 +14,7 @@ from utils import label_map_util
 
 from utils import visualization_utils as vis_util
 from matplotlib import pyplot as plt
+import skvideo.io
 
 root_dir = Path.cwd().parent
 
@@ -91,8 +92,11 @@ def create_data_for_observation(o):
     return to_observe
 
 
-def applyCV(frame, graph, categories):
-    data = np.expand_dims(frame, axis=0)
+def applyCV(data, graph, categories):
+
+    if len(data.shape) != 4:
+        data = np.expand_dims(data, axis=0)
+
     output_dict = run_inference_for_single_image(data, graph)
     print(type(data))
     print(data.shape)
@@ -123,6 +127,7 @@ if __name__ == '__main__':
     graph = load_frozen_model()
     categories = load_category_index()
     observations = load_observations_from_json()
+
     for o in observations:
 
         location_times = o['location_times']
@@ -131,6 +136,7 @@ if __name__ == '__main__':
         to_observe = create_data_for_observation(o)
 
         video = o['video_file']
+
         cap = cv2.VideoCapture(str(video))
         number_of_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
         total_time_seconds = 60 * 5
@@ -149,8 +155,8 @@ if __name__ == '__main__':
                 result = applyCV(frame, graph, categories)
                 # create_black_box(len(to_observe))
 
-                # for i, v in enumerate(to_observe):
-                #     create_text_to_display(v, i, time_index)
+                for i, v in enumerate(to_observe):
+                    create_text_to_display(v, i, time_index)
 
                 # plt.imshow(result)
                 # plt.savefig('test.png')
