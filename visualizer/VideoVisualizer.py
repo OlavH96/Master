@@ -152,7 +152,7 @@ if __name__ == '__main__':
                 nearest_time = nearest(location_times, new_time)
                 time_index = location_times.index(nearest_time)
 
-                result = applyCV(frame, graph, categories)
+                # result = applyCV(frame, graph, categories)
                 # create_black_box(len(to_observe))
 
                 for i, v in enumerate(to_observe):
@@ -160,7 +160,7 @@ if __name__ == '__main__':
 
                 # plt.imshow(result)
                 # plt.savefig('test.png')
-                cv2.imshow('Frame', result)
+                cv2.imshow('Frame', frame)
 
 
                 key = cv2.waitKey(25)

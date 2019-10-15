@@ -14,39 +14,14 @@ from io import StringIO
 from matplotlib import pyplot as plt
 from PIL import Image
 
-# This is needed since the notebook is stored in the object_detection folder.
-# sys.path.append("..")
 from object_detection.utils import ops as utils_ops
 
 if StrictVersion(tf.__version__) < StrictVersion('1.12.0'):
     raise ImportError('Please upgrade your TensorFlow installation to v1.12.*.')
 
-# ## Env setup
-
-# In[2]:
-
-
-# This is needed to display the images.
-
-
-# ## Object detection imports
-# Here are the imports from the object detection module.
-
-# In[3]:
-
 from utils import label_map_util
 
 from utils import visualization_utils as vis_util
-
-# # Model preparation 
-
-# ## Variables
-# 
-# Any model exported using the `export_inference_graph.py` tool can be loaded here simply by changing `PATH_TO_FROZEN_GRAPH` to point to a new .pb file.  
-# 
-# By default we use an "SSD with Mobilenet" model here. See the [detection model zoo](https://github.com/tensorflow/models/blob/master/research/object_detection/g3doc/detection_model_zoo.md) for a list of other models that can be run out-of-the-box with varying speeds and accuracies.
-
-# In[4]:
 
 MODEL_NAME = '/home/olav/PycharmProjects/Master/sign_detection/image_generation/ssd_mobilenet_v1_coco_2017_11_17'
 MODEL_FILE = MODEL_NAME + '.tar.gz'
@@ -68,9 +43,6 @@ def download_model():
         file_name = os.path.basename(file.name)
         if 'frozen_inference_graph.pb' in file_name:
             tar_file.extract(file, os.getcwd())
-
-
-# ## Load a (frozen) Tensorflow model into memory.
 
 def load_frozen_model():
     detection_graph = tf.Graph()
@@ -94,11 +66,6 @@ def load_image_into_numpy_array(image):
     return np.array(image.getdata()).reshape(
         (im_height, im_width, 3)).astype(np.uint8)
 
-# # Detection
-
-# For the sake of simplicity we will use only 2 images:
-# image1.jpg
-# image2.jpg
 # If you want to test the code with your images, just add path to the images to the TEST_IMAGE_PATHS.
 PATH_TO_TEST_IMAGES_DIR = '/home/olav/master/tf/models/research/object_detection/test_images'
 TEST_IMAGE_PATHS = [os.path.join(PATH_TO_TEST_IMAGES_DIR, 'image{}.jpg'.format(i)) for i in range(1, 3)]

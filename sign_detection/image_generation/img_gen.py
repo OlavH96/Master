@@ -5,13 +5,17 @@ import time
 import numpy as np
 from multiprocessing import Process, Queue, cpu_count
 from PIL import Image, ImageFilter, ImageOps
+import pathlib
+
+output_image_size = (640, 480)
+
 
 class Background:
-    BACKGROUND_PATH = 'image_generation/backgrounds'
+    BACKGROUND_PATH = 'images/backgrounds'
 
     def __init__(self, size=None):
         if size is None:
-            size=(640, 480)
+            size = output_image_size
         background_images = os.listdir(self.BACKGROUND_PATH)
         self.size = size
         self.backgrounds = [Image.open(os.path.join(self.BACKGROUND_PATH, image)).convert("RGBA").resize(self.size)
@@ -23,7 +27,7 @@ class Background:
 
 
 class Sign:
-    SIGN_PATH = 'image_generation/signs/png'
+    SIGN_PATH = 'images/signs/png'
 
     def __init__(self):
         sign_paths = sorted(os.listdir(self.SIGN_PATH))
@@ -41,9 +45,10 @@ class Sign:
 
 
 class Generator(Process):
-    OUTPUT_PATH = 'image_generation/generated/images'
+    OUTPUT_PATH = 'images/generated/images'
 
-    def __init__(self, tasks, results, rotation=(-20, 20), scale=(0.08, 0.25), signs=(2, 5), noise=(-10, 10), stretch=(0.6, 1.4),
+    def __init__(self, tasks, results, rotation=(-20, 20), scale=(0.08, 0.25), signs=(2, 5), noise=(-10, 10),
+                 stretch=(0.6, 1.4),
                  fade=(0.6, 1.4)):
         super().__init__()
         self.tasks = tasks
@@ -135,9 +140,11 @@ class Generator(Process):
 
 
 def generate(count):
-    OUTPUT_PATH = 'image_generation/generated'
-    os.mkdir(OUTPUT_PATH)
-    os.mkdir('%s/images' % OUTPUT_PATH)
+    OUTPUT_PATH = 'images/generated'
+
+    if not pathlib.Path(OUTPUT_PATH).exists():
+        os.mkdir(OUTPUT_PATH)
+        os.mkdir('%s/images' % OUTPUT_PATH)
 
     tasks = Queue()
     results = Queue()
@@ -146,7 +153,7 @@ def generate(count):
         tasks.put(i)
 
     workers = []
-    for i in range(cpu_count()/2):
+    for i in range(int(cpu_count() / 4)):
         workers.append(Generator(tasks, results))
 
     for worker in workers:
@@ -166,6 +173,7 @@ def generate(count):
             task, data = results.get()
             with open(os.path.join(OUTPUT_PATH, 'train_labels.csv'), 'a') as f:
                 f.write(data)
+
 
 if __name__ == '__main__':
     generate(10)

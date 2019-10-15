@@ -1,7 +1,7 @@
 import os
 
 def get_labels():
-    SIGN_PATH = 'image_generation/signs'
+    SIGN_PATH = 'images/signs'
     names = os.listdir(SIGN_PATH)
     return sorted([path for path in names if os.path.isdir(os.path.join(SIGN_PATH, path))])
 
