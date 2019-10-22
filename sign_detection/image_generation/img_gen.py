@@ -1,3 +1,4 @@
+import configparser
 import os
 import random
 import time
@@ -7,7 +8,16 @@ from multiprocessing import Process, Queue, cpu_count
 from PIL import Image, ImageFilter, ImageOps
 import pathlib
 
-output_image_size = (640, 480)
+root_dir = pathlib.Path.cwd()
+
+config = configparser.ConfigParser()
+config.read(root_dir / 'config.ini')
+tf_models_dir = config['Directories']['tf_models_dir']
+num_generated_images = config['Model']['num_generated_images']
+output_size_x = config['Model']['size_generated_image_x']
+output_size_y = config['Model']['size_generated_image_y']
+
+output_image_size = (output_size_x, output_size_y)
 
 
 class Background:
@@ -153,7 +163,7 @@ def generate(count):
         tasks.put(i)
 
     workers = []
-    for i in range(int(cpu_count() / 4)):
+    for i in range(int(cpu_count())):
         workers.append(Generator(tasks, results))
 
     for worker in workers:
@@ -176,4 +186,4 @@ def generate(count):
 
 
 if __name__ == '__main__':
-    generate(10)
+    generate(num_generated_images)
