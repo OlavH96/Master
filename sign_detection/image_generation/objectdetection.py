@@ -33,7 +33,7 @@ from utils import label_map_util
 
 from utils import visualization_utils as vis_util
 
-MODEL_NAME = model_name #'/home/olav/PycharmProjects/Master/sign_detection/image_generation/ssd_mobilenet_v1_coco_2017_11_17'
+MODEL_NAME = model_name
 MODEL_FILE = MODEL_NAME + '.tar.gz'
 DOWNLOAD_BASE = 'http://download.tensorflow.org/models/object_detection/'
 
@@ -45,11 +45,6 @@ PATH_TO_LABELS = os.path.join(tf_models_dir,'research/object_detection/data', 'm
 
 
 def download_model():
-    print(MODEL_NAME)
-    print(MODEL_FILE)
-    print(DOWNLOAD_BASE)
-    print(DOWNLOAD_BASE+MODEL_FILE)
-    print(MODEL_NAME.split('/')[-1])
     opener = urllib.request.URLopener()
     opener.retrieve(DOWNLOAD_BASE + MODEL_FILE, MODEL_FILE)
     tar_file = tarfile.open(MODEL_FILE)
