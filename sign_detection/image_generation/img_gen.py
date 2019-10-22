@@ -12,16 +12,17 @@ root_dir = pathlib.Path.cwd()
 
 config = configparser.ConfigParser()
 config.read(root_dir / 'config.ini')
-tf_models_dir = config['Directories']['tf_models_dir']
+
 num_generated_images = config['Model']['num_generated_images']
-output_size_x = config['Model']['size_generated_image_x']
-output_size_y = config['Model']['size_generated_image_y']
+output_size_x        = config['Model']['size_generated_image_x']
+output_size_y        = config['Model']['size_generated_image_y']
+img_gen_dir          = config['Model']['path_to_image_generation_data']
 
 output_image_size = (output_size_x, output_size_y)
 
 
 class Background:
-    BACKGROUND_PATH = 'images/backgrounds'
+    BACKGROUND_PATH = os.path.join(img_gen_dir, 'backgrounds')
 
     def __init__(self, size=None):
         if size is None:
@@ -37,7 +38,7 @@ class Background:
 
 
 class Sign:
-    SIGN_PATH = 'images/signs/png'
+    SIGN_PATH = os.path.join(img_gen_dir, 'signs/png')
 
     def __init__(self):
         sign_paths = sorted(os.listdir(self.SIGN_PATH))
@@ -55,7 +56,7 @@ class Sign:
 
 
 class Generator(Process):
-    OUTPUT_PATH = 'images/generated/images'
+    OUTPUT_PATH = os.path.join(img_gen_dir, 'generated/images')
 
     def __init__(self, tasks, results, rotation=(-20, 20), scale=(0.08, 0.25), signs=(2, 5), noise=(-10, 10),
                  stretch=(0.6, 1.4),
@@ -150,7 +151,7 @@ class Generator(Process):
 
 
 def generate(count):
-    OUTPUT_PATH = 'images/generated'
+    OUTPUT_PATH = os.path.join(img_gen_dir, 'generated')
 
     if not pathlib.Path(OUTPUT_PATH).exists():
         os.mkdir(OUTPUT_PATH)
