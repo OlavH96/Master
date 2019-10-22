@@ -1,4 +1,6 @@
 # Using object detection framework from tensorflow/model/research/object_detection
+import configparser
+from pathlib import Path
 
 import numpy as np
 import os
@@ -16,6 +18,14 @@ from PIL import Image
 
 from object_detection.utils import ops as utils_ops
 
+root_dir = Path.cwd()
+
+config = configparser.ConfigParser()
+config.read(root_dir / 'config.ini')
+tf_models_dir = config['Directories']['tf_models_dir']
+model_name    = config['Model']['model_path']
+
+
 if StrictVersion(tf.__version__) < StrictVersion('1.12.0'):
     raise ImportError('Please upgrade your TensorFlow installation to v1.12.*.')
 
@@ -23,7 +33,7 @@ from utils import label_map_util
 
 from utils import visualization_utils as vis_util
 
-MODEL_NAME = '/home/olav/PycharmProjects/Master/sign_detection/image_generation/ssd_mobilenet_v1_coco_2017_11_17'
+MODEL_NAME = model_name #'/home/olav/PycharmProjects/Master/sign_detection/image_generation/ssd_mobilenet_v1_coco_2017_11_17'
 MODEL_FILE = MODEL_NAME + '.tar.gz'
 DOWNLOAD_BASE = 'http://download.tensorflow.org/models/object_detection/'
 
@@ -31,11 +41,15 @@ DOWNLOAD_BASE = 'http://download.tensorflow.org/models/object_detection/'
 PATH_TO_FROZEN_GRAPH = MODEL_NAME + '/frozen_inference_graph.pb'
 
 # List of the strings that is used to add correct label for each box.
-PATH_TO_LABELS = os.path.join('/home/olav/master/tf/models/research/object_detection/data', 'mscoco_label_map.pbtxt')
+PATH_TO_LABELS = os.path.join(tf_models_dir,'research/object_detection/data', 'mscoco_label_map.pbtxt')
 
 
 def download_model():
-
+    print(MODEL_NAME)
+    print(MODEL_FILE)
+    print(DOWNLOAD_BASE)
+    print(DOWNLOAD_BASE+MODEL_FILE)
+    print(MODEL_NAME.split('/')[-1])
     opener = urllib.request.URLopener()
     opener.retrieve(DOWNLOAD_BASE + MODEL_FILE, MODEL_FILE)
     tar_file = tarfile.open(MODEL_FILE)
@@ -67,7 +81,7 @@ def load_image_into_numpy_array(image):
         (im_height, im_width, 3)).astype(np.uint8)
 
 # If you want to test the code with your images, just add path to the images to the TEST_IMAGE_PATHS.
-PATH_TO_TEST_IMAGES_DIR = '/home/olav/master/tf/models/research/object_detection/test_images'
+PATH_TO_TEST_IMAGES_DIR = os.path.join(tf_models_dir, 'research/object_detection/test_images')
 TEST_IMAGE_PATHS = [os.path.join(PATH_TO_TEST_IMAGES_DIR, 'image{}.jpg'.format(i)) for i in range(1, 3)]
 
 # Size, in inches, of the output images.
