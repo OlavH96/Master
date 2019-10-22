@@ -6,7 +6,7 @@ import logging as logger
 import pickle
 
 logger.getLogger().setLevel(logger.INFO)
-root_dir = Path.cwd().parent
+root_dir = Path.cwd()#.parent
 
 config = configparser.ConfigParser()
 config.read(root_dir / 'config.ini')
