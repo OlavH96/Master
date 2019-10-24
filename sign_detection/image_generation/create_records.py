@@ -12,13 +12,13 @@ root_dir = Path.cwd()
 config = configparser.ConfigParser()
 config.read(root_dir / 'config.ini')
 
-size_x = config['Model']['size_generated_image_x']
-size_y = config['Model']['size_generated_image_y']
-config_name = config['Model']['config_name']
-config_path = config['Model']['config_path']
-training_steps = config['Model']['training_steps']
-num_generated_images = config['Model']['num_generated_images']
-template_path = config['Model']['template_path']
+size_x                  = int(config['Model']['size_generated_image_x'])
+size_y                  = int(config['Model']['size_generated_image_y'])
+config_name             = config['Model']['config_name']
+config_path             = config['Model']['config_path']
+training_steps          = config['Model']['training_steps']
+num_generated_images    = config['Model']['num_generated_images']
+template_path           = config['Model']['template_path']
 
 path_to_image_generation_data = config['Model']['path_to_image_generation_data']
 
