@@ -16,6 +16,8 @@ config_path             = config['Model']['config_path']
 training_steps          = config['Model']['training_steps']
 num_generated_images    = config['Model']['num_generated_images']
 template_path           = config['Model']['template_path']
+fine_tune_model_path    = config['Model']['path_to_fine_tune_model']
+models_path             = config['Directories']['tf_models_dir']
 
 
 def gen_config():
@@ -31,6 +33,8 @@ def gen_config():
             'IMAGE_COUNT': num_generated_images,
             'CLASS_COUNT': len(get_labels()),
             'TRAIN_STEPS': training_steps,
+            'MODELS_PATH': models_path,
+            'FINE_TUNE_MODEL_PATH': fine_tune_model_path,
         })
 
 
