@@ -13,9 +13,9 @@ root_dir = pathlib.Path.cwd()
 config = configparser.ConfigParser()
 config.read(root_dir / 'config.ini')
 
-num_generated_images = config['Model']['num_generated_images']
-output_size_x        = config['Model']['size_generated_image_x']
-output_size_y        = config['Model']['size_generated_image_y']
+num_generated_images = int(config['Model']['num_generated_images'])
+output_size_x        = int(config['Model']['size_generated_image_x'])
+output_size_y        = int(config['Model']['size_generated_image_y'])
 img_gen_dir          = config['Model']['path_to_image_generation_data']
 
 output_image_size = (output_size_x, output_size_y)
