@@ -16,7 +16,7 @@ from utils import visualization_utils as vis_util
 from matplotlib import pyplot as plt
 import skvideo.io
 
-root_dir = Path.cwd().parent
+root_dir = Path.cwd()#.parent
 
 config = configparser.ConfigParser()
 config.read(root_dir / 'config.ini')
@@ -152,7 +152,7 @@ if __name__ == '__main__':
                 nearest_time = nearest(location_times, new_time)
                 time_index = location_times.index(nearest_time)
 
-                # result = applyCV(frame, graph, categories)
+                #result = applyCV(frame, graph, categories)
                 # create_black_box(len(to_observe))
 
                 for i, v in enumerate(to_observe):
