@@ -98,13 +98,10 @@ def applyCV(data, graph, categories):
         data = np.expand_dims(data, axis=0)
 
     output_dict = run_inference_for_single_image(data, graph)
-    print(type(data))
-    print(data.shape)
-    print(type(output_dict))
+    print("Categories:",categories)
     print(output_dict.keys())
     print("num detections", output_dict['num_detections'])
     data = data[0]
-    print(data.shape)
     vis_util.visualize_boxes_and_labels_on_image_array(
         data,
         output_dict['detection_boxes'],
@@ -152,7 +149,7 @@ if __name__ == '__main__':
                 nearest_time = nearest(location_times, new_time)
                 time_index = location_times.index(nearest_time)
 
-                #result = applyCV(frame, graph, categories)
+                result = applyCV(frame, graph, categories)
                 # create_black_box(len(to_observe))
 
                 for i, v in enumerate(to_observe):

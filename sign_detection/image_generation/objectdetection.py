@@ -17,6 +17,8 @@ from matplotlib import pyplot as plt
 from PIL import Image
 
 from object_detection.utils import ops as utils_ops
+import base64
+import cv2
 
 root_dir = Path.cwd()
 
@@ -41,8 +43,7 @@ DOWNLOAD_BASE = 'http://download.tensorflow.org/models/object_detection/'
 PATH_TO_FROZEN_GRAPH = MODEL_NAME + '/frozen_inference_graph.pb'
 
 # List of the strings that is used to add correct label for each box.
-PATH_TO_LABELS = os.path.join(tf_models_dir,'research/object_detection/data', 'mscoco_label_map.pbtxt')
-
+PATH_TO_LABELS = os.path.join(tf_models_dir,'research/object_detection/data', 'labelmap.pbtxt')#'mscoco_label_map.pbtxt')
 
 def download_model():
     opener = urllib.request.URLopener()
@@ -83,11 +84,14 @@ TEST_IMAGE_PATHS = [os.path.join(PATH_TO_TEST_IMAGES_DIR, 'image{}.jpg'.format(i
 IMAGE_SIZE = (12, 8)
 
 def run_inference_for_single_image(image, graph):
+
     with graph.as_default():
         with tf.Session() as sess:
+
             # Get handles to input and output tensors
             ops = tf.get_default_graph().get_operations()
             all_tensor_names = {output.name for op in ops for output in op.outputs}
+
             tensor_dict = {}
             for key in [
                 'num_detections', 'detection_boxes', 'detection_scores',
@@ -97,6 +101,7 @@ def run_inference_for_single_image(image, graph):
                 if tensor_name in all_tensor_names:
                     tensor_dict[key] = tf.get_default_graph().get_tensor_by_name(
                         tensor_name)
+
             if 'detection_masks' in tensor_dict:
                 # The following processing is only for single image
                 detection_boxes = tf.squeeze(tensor_dict['detection_boxes'], [0])
@@ -112,12 +117,14 @@ def run_inference_for_single_image(image, graph):
                 # Follow the convention by adding back the batch dimension
                 tensor_dict['detection_masks'] = tf.expand_dims(
                     detection_masks_reframed, 0)
-            image_tensor = tf.get_default_graph().get_tensor_by_name('image_tensor:0')
+
+            image_tensor = tf.get_default_graph().get_tensor_by_name('image_tensor:0')#'encoded_image_string_tensor:0'
 
             # Run inference
             output_dict = sess.run(tensor_dict,
                                    feed_dict={image_tensor: image})
 
+            print("output",output_dict)
             # all outputs are float32 numpy arrays, so convert types as appropriate
             output_dict['num_detections'] = int(output_dict['num_detections'][0])
             output_dict['detection_classes'] = output_dict[
@@ -127,9 +134,6 @@ def run_inference_for_single_image(image, graph):
             if 'detection_masks' in output_dict:
                 output_dict['detection_masks'] = output_dict['detection_masks'][0]
     return output_dict
-
-
-# In[11]:
 
 
 def test(graph):
@@ -159,6 +163,6 @@ def test(graph):
 
 
 if __name__ == '__main__':
-    download_model()
+    #download_model()
     detection_graph = load_frozen_model()
     test(detection_graph)
