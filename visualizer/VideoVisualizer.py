@@ -15,6 +15,7 @@ from utils import label_map_util
 from utils import visualization_utils as vis_util
 from matplotlib import pyplot as plt
 import skvideo.io
+import math
 
 root_dir = Path.cwd()#.parent
 
@@ -91,6 +92,30 @@ def create_data_for_observation(o):
     ]
     return to_observe
 
+def _get_box(image, detection_box):
+
+    im_width = image.shape[1]
+    im_height = image.shape[0]
+    
+    (ymin, xmin, ymax, xmax)= detection_box
+
+    (xmin, xmax, ymin, ymax) = (xmin * im_width, xmax * im_width,
+                                  ymin * im_height, ymax * im_height)
+
+    return xmin, xmax, ymin, ymax
+
+def _crop_detected_objects_from_image(image, detection_box):
+    box_data = _get_box(image, detection_box)
+    (xmin, xmax, ymin, ymax) = box_data
+    xmin = math.floor(xmin)
+    ymin = math.floor(ymin)
+    xmax = math.ceil(xmax)
+    ymax = math.ceil(ymax)
+            
+    crop_img = image[ymin:ymax, xmin:xmax]
+    cv2.imwrite(f'./detected_images/{str(xmin+ymin+xmax+ymax)}_cropped.png', crop_img)
+
+import random
 
 def applyCV(data, graph, categories):
 
@@ -98,19 +123,38 @@ def applyCV(data, graph, categories):
         data = np.expand_dims(data, axis=0)
 
     output_dict = run_inference_for_single_image(data, graph)
-    print("Categories:",categories)
-    print(output_dict.keys())
-    print("num detections", output_dict['num_detections'])
+
+    num_detections      = int(  output_dict['num_detections'])
+    detection_boxes     =       output_dict['detection_boxes']
+    detection_classes   =       output_dict['detection_classes']
+    detection_scores    =       output_dict['detection_scores']
+
     data = data[0]
-    vis_util.visualize_boxes_and_labels_on_image_array(
-        data,
-        output_dict['detection_boxes'],
-        output_dict['detection_classes'],
-        output_dict['detection_scores'],
-        categories,
-        #instance_masks=output_dict.get('detection_masks'),
-        use_normalized_coordinates=True,
-        line_thickness=8)
+    if num_detections > 0:
+        print('Detected Sign')
+
+        for i in range(num_detections):
+            box = detection_boxes[i]
+            prediction = detection_classes[i]
+            prediction_score = detection_scores[i]
+
+            print("box",box)
+            print("prediction",prediction)
+            print("prediction_score",prediction_score)
+
+            _crop_detected_objects_from_image(data, box)
+
+        vis_util.visualize_boxes_and_labels_on_image_array(
+            data,
+            output_dict['detection_boxes'],
+            output_dict['detection_classes'],
+            output_dict['detection_scores'],
+            categories,
+            #instance_masks=output_dict.get('detection_masks'),
+            use_normalized_coordinates=True,
+            line_thickness=8)
+
+
     return data
 
 
@@ -125,6 +169,7 @@ if __name__ == '__main__':
     categories = load_category_index()
     observations = load_observations_from_json()
 
+    print('Categories', categories)
     for o in observations:
 
         location_times = o['location_times']

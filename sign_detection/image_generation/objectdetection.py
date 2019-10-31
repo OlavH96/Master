@@ -124,7 +124,7 @@ def run_inference_for_single_image(image, graph):
             output_dict = sess.run(tensor_dict,
                                    feed_dict={image_tensor: image})
 
-            print("output",output_dict)
+            #print("output",output_dict)
             # all outputs are float32 numpy arrays, so convert types as appropriate
             output_dict['num_detections'] = int(output_dict['num_detections'][0])
             output_dict['detection_classes'] = output_dict[
