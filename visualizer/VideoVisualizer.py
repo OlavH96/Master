@@ -17,6 +17,13 @@ from matplotlib import pyplot as plt
 import skvideo.io
 import math
 
+import argparse
+
+aparser = argparse.ArgumentParser(description='Run video analysis.')
+aparser.add_argument('--no-visual', dest='visual', action='store_false')
+aparser.set_defaults(visual=True)
+args = aparser.parse_args()
+
 root_dir = Path.cwd()#.parent
 
 config = configparser.ConfigParser()
@@ -144,15 +151,16 @@ def applyCV(data, graph, categories):
 
             _crop_detected_objects_from_image(data, box)
 
-        vis_util.visualize_boxes_and_labels_on_image_array(
-            data,
-            output_dict['detection_boxes'],
-            output_dict['detection_classes'],
-            output_dict['detection_scores'],
-            categories,
-            #instance_masks=output_dict.get('detection_masks'),
-            use_normalized_coordinates=True,
-            line_thickness=8)
+        if args.visual:
+            vis_util.visualize_boxes_and_labels_on_image_array(
+                data,
+                output_dict['detection_boxes'],
+                output_dict['detection_classes'],
+                output_dict['detection_scores'],
+                categories,
+                #instance_masks=output_dict.get('detection_masks'),
+                use_normalized_coordinates=True,
+                line_thickness=8)
 
 
     return data
@@ -160,10 +168,10 @@ def applyCV(data, graph, categories):
 
 if __name__ == '__main__':
 
-    # observations = get_observations_with_video()
-    # download_videos_if_not_exists(observations)
-    # tie_observations_to_videos(observations)
-    # save_observations_as_json(observations)
+    observations = get_observations_with_video(limit=100)
+    download_videos_if_not_exists(observations)
+    tie_observations_to_videos(observations)
+    save_observations_as_json(observations)
 
     graph = load_frozen_model()
     categories = load_category_index()
@@ -196,26 +204,26 @@ if __name__ == '__main__':
 
                 result = applyCV(frame, graph, categories)
                 # create_black_box(len(to_observe))
+                if args.visual:
+                    for i, v in enumerate(to_observe):
+                        create_text_to_display(v, i, time_index)
 
-                for i, v in enumerate(to_observe):
-                    create_text_to_display(v, i, time_index)
-
-                # plt.imshow(result)
-                # plt.savefig('test.png')
-                cv2.imshow('Frame', frame)
+                    # plt.imshow(result)
+                    # plt.savefig('test.png')
+                    cv2.imshow('Frame', frame)
 
 
-                key = cv2.waitKey(25)
-                if key == ord('q'):
-                    break
-                if key == ord('e'):
-                    exit(1)
-                if key == ord('p'):
-                    waiting = True
-                    while waiting:
-                        if cv2.waitKey(25) & 0xFF == ord('p'):
-                            waiting = False
+                    key = cv2.waitKey(25)
+                    if key == ord('q'):
+                        break
+                    if key == ord('e'):
+                        exit(1)
+                    if key == ord('p'):
+                        waiting = True
+                        while waiting:
+                            if cv2.waitKey(25) & 0xFF == ord('p'):
+                                waiting = False
 
             # Break the loop
             else:
-                exit(1)
+                exit(0)

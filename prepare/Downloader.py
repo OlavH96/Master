@@ -47,13 +47,13 @@ def tie_observations_to_videos(observations):
             obs['video_file'] = video
 
 
-def get_observations_with_video():
+def get_observations_with_video(limit=10):
     shares = api.shares()
     # for s in shares:
     #     print(s)
     query = {
         "share_id": shares[0]["id"],
-        "limit": 10
+        "limit": limit
     }
     observations = api.mobileObservations(**query)
     # print(len(observations))
