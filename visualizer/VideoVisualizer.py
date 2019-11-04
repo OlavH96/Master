@@ -23,32 +23,26 @@ aparser = argparse.ArgumentParser(description='Run video analysis.')
 aparser.add_argument('--no-visual', dest='visual', action='store_false', help='Run without displaying video feed')
 aparser.set_defaults(visual=True)
 
-aparser.add_argument('--use-cached', dest='cached', action='store_false', help='Run using downloaded observations and videos')
+aparser.add_argument('--use-cached', dest='cached', action='store_false',
+                     help='Run using downloaded observations and videos')
 aparser.set_defaults(cached=True)
 
-aparser.add_argument('--extract-detected', dest='extract', action='store_true', help='Extract and save detected objects')
+aparser.add_argument('--extract-detected', dest='extract', action='store_true',
+                     help='Extract and save detected objects')
 aparser.set_defaults(extract=False)
 
-aparser.add_argument('--extraction-certainty', dest='extract_limit', type=float, help='Prediction certainty for extracting image')
+aparser.add_argument('--extraction-certainty', dest='extract_limit', type=float,
+                     help='Prediction certainty for extracting image')
 aparser.set_defaults(extract_limit=0.6)
-
 
 args = aparser.parse_args()
 
-root_dir = Path.cwd()#.parent
+root_dir = Path.cwd()  # .parent
 
 config = configparser.ConfigParser()
 config.read(root_dir / 'config.ini')
 output_dir = config['Directories']['downloaded_videos']
 output_dir = root_dir / output_dir
-
-
-def create_black_box(num_texts):
-    cv2.rectangle(frame,
-                  (0, 0),
-                  (frame.shape[1], (num_texts + 1) * 30),
-                  (0, 0, 0),
-                  cv2.FILLED)
 
 
 def nearest(items, pivot):
@@ -83,13 +77,13 @@ def create_data_for_observation(o):
     print()
     parameters_to_include = [
         'DIRECTION',
-        'SURFACE_STATE_CV',
-        'ROAD_WEATHER_CV',
-        'SURFACE_TYPE_CV',
-        'CRACKING_CV',
-        'POTHOLING_CV',
-        'GUARD_RAIL_LEFT_CV',
-        'GUARD_RAIL_RIGHT_CV',
+        # 'SURFACE_STATE_CV',
+        # 'ROAD_WEATHER_CV',
+        # 'SURFACE_TYPE_CV',
+        # 'CRACKING_CV',
+        # 'POTHOLING_CV',
+        # 'GUARD_RAIL_LEFT_CV',
+        # 'GUARD_RAIL_RIGHT_CV',
     ]
     location_measurements = list(
         filter(lambda l: l['parameter_type'] in parameters_to_include, location_measurements))
@@ -110,17 +104,18 @@ def create_data_for_observation(o):
     ]
     return to_observe
 
-def _get_box(image, detection_box):
 
+def _get_box(image, detection_box):
     im_width = image.shape[1]
     im_height = image.shape[0]
-    
-    (ymin, xmin, ymax, xmax)= detection_box
+
+    (ymin, xmin, ymax, xmax) = detection_box
 
     (xmin, xmax, ymin, ymax) = (xmin * im_width, xmax * im_width,
-                                  ymin * im_height, ymax * im_height)
+                                ymin * im_height, ymax * im_height)
 
     return xmin, xmax, ymin, ymax
+
 
 def _crop_detected_objects_from_image(image, detection_box):
     box_data = _get_box(image, detection_box)
@@ -129,23 +124,21 @@ def _crop_detected_objects_from_image(image, detection_box):
     ymin = math.floor(ymin)
     xmax = math.ceil(xmax)
     ymax = math.ceil(ymax)
-            
-    crop_img = image[ymin:ymax, xmin:xmax]
-    cv2.imwrite(f'./detected_images/{str(xmin+ymin+xmax+ymax)}_cropped.png', crop_img)
 
-import random
+    crop_img = image[ymin:ymax, xmin:xmax]
+    cv2.imwrite(f'./detected_images/{str(xmin + ymin + xmax + ymax)}_cropped.png', crop_img)
+
 
 def applyCV(data, graph, categories):
-
     if len(data.shape) != 4:
         data = np.expand_dims(data, axis=0)
 
     output_dict = run_inference_for_single_image(data, graph)
 
-    num_detections      = int(  output_dict['num_detections'])
-    detection_boxes     =       output_dict['detection_boxes']
-    detection_classes   =       output_dict['detection_classes']
-    detection_scores    =       output_dict['detection_scores']
+    num_detections = int(output_dict['num_detections'])
+    detection_boxes = output_dict['detection_boxes']
+    detection_classes = output_dict['detection_classes']
+    detection_scores = output_dict['detection_scores']
 
     data = data[0]
     if num_detections > 0:
@@ -156,10 +149,10 @@ def applyCV(data, graph, categories):
             prediction = detection_classes[i]
             prediction_score = detection_scores[i]
 
-            print("box",box)
-            print("prediction",prediction)
-            print("prediction",categories[prediction])
-            print("prediction_score",prediction_score)
+            print("box", box)
+            print("prediction", prediction)
+            print("prediction", categories[prediction])
+            print("prediction_score", prediction_score)
 
             if args.extract and prediction_score >= args.extract_limit:
                 _crop_detected_objects_from_image(data, box)
@@ -171,22 +164,22 @@ def applyCV(data, graph, categories):
                 output_dict['detection_classes'],
                 output_dict['detection_scores'],
                 categories,
-                #instance_masks=output_dict.get('detection_masks'),
+                # instance_masks=output_dict.get('detection_masks'),
                 use_normalized_coordinates=True,
                 line_thickness=8)
-
 
     return data
 
 
 if __name__ == '__main__':
-    
+    print("Arguments", args)
+
     if not args.cached:
         observations = get_observations_with_video(limit=100)
         download_videos_if_not_exists(observations)
         tie_observations_to_videos(observations)
         save_observations_as_json(observations)
-    else: 
+    else:
         observations = load_observations_from_json()
 
     graph = load_frozen_model()
@@ -204,8 +197,8 @@ if __name__ == '__main__':
 
         cap = cv2.VideoCapture(str(video))
         number_of_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
-        total_time_seconds = 60 * 5
-        time_per_frame = total_time_seconds / number_of_frames
+        total_time_seconds = 60 * 5  # Assume constant video length of 5 minutes
+        time_per_frame = total_time_seconds / number_of_frames  # Assume constant frame time
 
         new_time = start_time
         while (cap.isOpened()):
@@ -217,16 +210,15 @@ if __name__ == '__main__':
                 nearest_time = nearest(location_times, new_time)
                 time_index = location_times.index(nearest_time)
 
+                data_for_timestep = [v[time_index] for v in to_observe[1:]]  # Data excluding time
+                print(data_for_timestep)
+
                 result = applyCV(frame, graph, categories)
-                # create_black_box(len(to_observe))
                 if args.visual:
                     for i, v in enumerate(to_observe):
                         create_text_to_display(v, i, time_index)
 
-                    # plt.imshow(result)
-                    # plt.savefig('test.png')
                     cv2.imshow('Frame', frame)
-
 
                     key = cv2.waitKey(25)
                     if key == ord('q'):
