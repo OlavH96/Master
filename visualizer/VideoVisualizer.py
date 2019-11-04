@@ -20,8 +20,19 @@ import math
 import argparse
 
 aparser = argparse.ArgumentParser(description='Run video analysis.')
-aparser.add_argument('--no-visual', dest='visual', action='store_false')
+aparser.add_argument('--no-visual', dest='visual', action='store_false', help='Run without displaying video feed')
 aparser.set_defaults(visual=True)
+
+aparser.add_argument('--use-cached', dest='cached', action='store_false', help='Run using downloaded observations and videos')
+aparser.set_defaults(cached=True)
+
+aparser.add_argument('--extract-detected', dest='extract', action='store_true', help='Extract and save detected objects')
+aparser.set_defaults(extract=False)
+
+aparser.add_argument('--extraction-certainty', dest='extract_limit', type=float, help='Prediction certainty for extracting image')
+aparser.set_defaults(extract_limit=0.6)
+
+
 args = aparser.parse_args()
 
 root_dir = Path.cwd()#.parent
@@ -147,9 +158,11 @@ def applyCV(data, graph, categories):
 
             print("box",box)
             print("prediction",prediction)
+            print("prediction",categories[prediction])
             print("prediction_score",prediction_score)
 
-            _crop_detected_objects_from_image(data, box)
+            if args.extract and prediction_score >= args.extract_limit:
+                _crop_detected_objects_from_image(data, box)
 
         if args.visual:
             vis_util.visualize_boxes_and_labels_on_image_array(
@@ -167,15 +180,17 @@ def applyCV(data, graph, categories):
 
 
 if __name__ == '__main__':
-
-    observations = get_observations_with_video(limit=100)
-    download_videos_if_not_exists(observations)
-    tie_observations_to_videos(observations)
-    save_observations_as_json(observations)
+    
+    if not args.cached:
+        observations = get_observations_with_video(limit=100)
+        download_videos_if_not_exists(observations)
+        tie_observations_to_videos(observations)
+        save_observations_as_json(observations)
+    else: 
+        observations = load_observations_from_json()
 
     graph = load_frozen_model()
     categories = load_category_index()
-    observations = load_observations_from_json()
 
     print('Categories', categories)
     for o in observations:
