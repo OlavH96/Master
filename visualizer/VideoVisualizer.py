@@ -23,7 +23,7 @@ aparser = argparse.ArgumentParser(description='Run video analysis.')
 aparser.add_argument('--no-visual', dest='visual', action='store_false', help='Run without displaying video feed')
 aparser.set_defaults(visual=True)
 
-aparser.add_argument('--use-cached', dest='cached', action='store_false',
+aparser.add_argument('--do-not-use-cached', dest='cached', action='store_false',
                      help='Run using downloaded observations and videos')
 aparser.set_defaults(cached=True)
 
@@ -117,7 +117,7 @@ def _get_box(image, detection_box):
     return xmin, xmax, ymin, ymax
 
 
-def _crop_detected_objects_from_image(image, detection_box):
+def _crop_detected_objects_from_image(image, detection_box, data_for_timestep, prediction):
     box_data = _get_box(image, detection_box)
     (xmin, xmax, ymin, ymax) = box_data
     xmin = math.floor(xmin)
@@ -126,10 +126,15 @@ def _crop_detected_objects_from_image(image, detection_box):
     ymax = math.ceil(ymax)
 
     crop_img = image[ymin:ymax, xmin:xmax]
-    cv2.imwrite(f'./detected_images/{str(xmin + ymin + xmax + ymax)}_cropped.png', crop_img)
+    if np.mean(crop_img) < 0.2: 
+        return  # Black image === its a cencored car
 
+    filename = f'{prediction["name"]}_'
+    filename += '_'.join(str(i) for i in data_for_timestep)
+    print('filename', filename)
+    cv2.imwrite(f'./detected_images/{filename}.png', crop_img)
 
-def applyCV(data, graph, categories):
+def applyCV(data, graph, categories, data_for_timestep):
     if len(data.shape) != 4:
         data = np.expand_dims(data, axis=0)
 
@@ -155,7 +160,8 @@ def applyCV(data, graph, categories):
             print("prediction_score", prediction_score)
 
             if args.extract and prediction_score >= args.extract_limit:
-                _crop_detected_objects_from_image(data, box)
+                
+                _crop_detected_objects_from_image(data, box, data_for_timestep, categories[prediction])
 
         if args.visual:
             vis_util.visualize_boxes_and_labels_on_image_array(
@@ -213,7 +219,7 @@ if __name__ == '__main__':
                 data_for_timestep = [v[time_index] for v in to_observe[1:]]  # Data excluding time
                 print(data_for_timestep)
 
-                result = applyCV(frame, graph, categories)
+                result = applyCV(frame, graph, categories, data_for_timestep)
                 if args.visual:
                     for i, v in enumerate(to_observe):
                         create_text_to_display(v, i, time_index)
