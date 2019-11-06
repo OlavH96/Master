@@ -4,6 +4,7 @@ import os
 from pathlib import Path
 import logging as logger
 import pickle
+import argparse
 
 logger.getLogger().setLevel(logger.INFO)
 root_dir = Path.cwd()#.parent
@@ -17,6 +18,8 @@ output_dir = root_dir / output_dir
 
 saved_observations_dir = config['Directories']['saved_observations']
 saved_observations_dir = root_dir / saved_observations_dir
+
+
 
 api = Api()
 auth = api.login(username, password)
@@ -49,10 +52,10 @@ def tie_observations_to_videos(observations):
 
 def get_observations_with_video(limit=10):
     shares = api.shares()
-    # for s in shares:
-    #     print(s)
+    for s in shares:
+        print(s)
     query = {
-        "share_id": shares[0]["id"],
+        "share_id": shares[2]["id"],
         "limit": limit
     }
     observations = api.mobileObservations(**query)
@@ -89,3 +92,23 @@ def load_observations_from_json():
             observations.append(pickle.load(file))
 
     return observations
+
+
+if __name__ == '__main__':
+
+    aparser = argparse.ArgumentParser(description='Download videos from API')
+    aparser.add_argument('--num-videos', dest='num_videos', type=int,
+                         help='Number of videos to download')
+    aparser.set_defaults(num_videos=100)
+    
+    aparser.add_argument('--save', dest='save', action='store_true',
+                         help='Should save and store videos to json')
+    aparser.set_defaults(save=False)
+    args = aparser.parse_args()
+
+    observations = get_observations_with_video(limit=args.num_videos)
+
+    if args.save:
+        download_videos_if_not_exists(observations)
+        tie_observations_to_videos(observations)
+        save_observations_as_json(observations)

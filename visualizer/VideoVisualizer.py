@@ -1,7 +1,8 @@
 import configparser
 from pathlib import Path
 from datetime import timedelta
-
+import os
+os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2' 
 import numpy as np
 
 from prepare.Downloader import get_observations_with_video, download_videos_if_not_exists, tie_observations_to_videos, \
@@ -18,6 +19,7 @@ import skvideo.io
 import math
 
 import argparse
+import logging as logger
 
 aparser = argparse.ArgumentParser(description='Run video analysis.')
 aparser.add_argument('--no-visual', dest='visual', action='store_false', help='Run without displaying video feed')
@@ -33,7 +35,7 @@ aparser.set_defaults(extract=False)
 
 aparser.add_argument('--extraction-certainty', dest='extract_limit', type=float,
                      help='Prediction certainty for extracting image')
-aparser.set_defaults(extract_limit=0.6)
+aparser.set_defaults(extract_limit=0.5)
 
 args = aparser.parse_args()
 
@@ -72,9 +74,7 @@ def create_text_to_display(create_text_from, text_index, index):
 
 def create_data_for_observation(o):
     location_measurements = o['location_measurements']
-    for l in location_measurements:
-        print(l)
-    print()
+
     parameters_to_include = [
         'DIRECTION',
         # 'SURFACE_STATE_CV',
@@ -117,7 +117,7 @@ def _get_box(image, detection_box):
     return xmin, xmax, ymin, ymax
 
 
-def _crop_detected_objects_from_image(image, detection_box, data_for_timestep, prediction):
+def _crop_detected_objects_from_image(image, detection_box, data_for_timestep, prediction, score):
     box_data = _get_box(image, detection_box)
     (xmin, xmax, ymin, ymax) = box_data
     xmin = math.floor(xmin)
@@ -127,12 +127,13 @@ def _crop_detected_objects_from_image(image, detection_box, data_for_timestep, p
 
     crop_img = image[ymin:ymax, xmin:xmax]
     if np.mean(crop_img) < 0.2: 
+        logger.info(f'Discarded image for being too black: score: {score}, mean: {np.mean(crop_img)}')
+        cv2.imwrite(f'./detected_images/ignored_{np.mean(crop_img)}_.png', crop_img)
         return  # Black image === its a cencored car
 
-    filename = f'{prediction["name"]}_'
+    filename = f'{prediction["name"]}_{score}_'
     filename += '_'.join(str(i) for i in data_for_timestep)
-    print('filename', filename)
-    cv2.imwrite(f'./detected_images/{filename}.png', crop_img)
+    cv2.imwrite(f'./detected_images/{filename}_.png', crop_img)
 
 def applyCV(data, graph, categories, data_for_timestep):
     if len(data.shape) != 4:
@@ -147,21 +148,15 @@ def applyCV(data, graph, categories, data_for_timestep):
 
     data = data[0]
     if num_detections > 0:
-        print('Detected Sign')
 
         for i in range(num_detections):
             box = detection_boxes[i]
             prediction = detection_classes[i]
             prediction_score = detection_scores[i]
 
-            print("box", box)
-            print("prediction", prediction)
-            print("prediction", categories[prediction])
-            print("prediction_score", prediction_score)
-
             if args.extract and prediction_score >= args.extract_limit:
                 
-                _crop_detected_objects_from_image(data, box, data_for_timestep, categories[prediction])
+                _crop_detected_objects_from_image(data, box, data_for_timestep, categories[prediction], prediction_score)
 
         if args.visual:
             vis_util.visualize_boxes_and_labels_on_image_array(
@@ -192,7 +187,8 @@ if __name__ == '__main__':
     categories = load_category_index()
 
     print('Categories', categories)
-    for o in observations:
+    for i,o in enumerate(observations):
+        logger.info(f"Analyzing video {i}/{len(observations)}")
 
         location_times = o['location_times']
         location_times = [parser.parse(t) for t in location_times]
@@ -217,7 +213,6 @@ if __name__ == '__main__':
                 time_index = location_times.index(nearest_time)
 
                 data_for_timestep = [v[time_index] for v in to_observe[1:]]  # Data excluding time
-                print(data_for_timestep)
 
                 result = applyCV(frame, graph, categories, data_for_timestep)
                 if args.visual:
@@ -236,7 +231,5 @@ if __name__ == '__main__':
                         while waiting:
                             if cv2.waitKey(25) & 0xFF == ord('p'):
                                 waiting = False
-
-            # Break the loop
             else:
-                exit(0)
+                break

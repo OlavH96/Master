@@ -20,6 +20,8 @@ from object_detection.utils import ops as utils_ops
 import base64
 import cv2
 
+tf.logging.set_verbosity(tf.logging.ERROR)
+
 root_dir = Path.cwd()
 
 config = configparser.ConfigParser()
