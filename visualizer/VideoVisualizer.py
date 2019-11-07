@@ -19,7 +19,9 @@ import skvideo.io
 import math
 
 import argparse
-import logging as logger
+import logging
+logger = logging.getLogger('VideoLogger')
+logger.setLevel(logging.DEBUG)
 
 aparser = argparse.ArgumentParser(description='Run video analysis.')
 aparser.add_argument('--no-visual', dest='visual', action='store_false', help='Run without displaying video feed')
@@ -36,6 +38,14 @@ aparser.set_defaults(extract=False)
 aparser.add_argument('--extraction-certainty', dest='extract_limit', type=float,
                      help='Prediction certainty for extracting image')
 aparser.set_defaults(extract_limit=0.5)
+
+aparser.add_argument('--number-of-videos', dest='num_vids_to_analyze', type=int,
+                     help='Number of videos to analyze')
+aparser.set_defaults(num_vids_to_analyze=1000)
+
+aparser.add_argument('--skip', dest='num_vids_to_skip', type=int,
+                     help='Number of videos to skip')
+aparser.set_defaults(num_vids_to_skip=0)
 
 args = aparser.parse_args()
 
@@ -126,13 +136,15 @@ def _crop_detected_objects_from_image(image, detection_box, data_for_timestep, p
     ymax = math.ceil(ymax)
 
     crop_img = image[ymin:ymax, xmin:xmax]
-    if np.mean(crop_img) < 0.2: 
-        logger.info(f'Discarded image for being too black: score: {score}, mean: {np.mean(crop_img)}')
-        cv2.imwrite(f'./detected_images/ignored_{np.mean(crop_img)}_.png', crop_img)
+    mean = np.mean(crop_img/255)
+    if mean < 0.1: 
+        logger.info(f'Discarded image for being too black: score: {score}, mean: {mean}')
+        cv2.imwrite(f'./detected_images/ignored_{mean}_.png', crop_img)
         return  # Black image === its a cencored car
-
+    
     filename = f'{prediction["name"]}_{score}_'
     filename += '_'.join(str(i) for i in data_for_timestep)
+    logger.info(f'Detected image {filename}, with mean {mean}')
     cv2.imwrite(f'./detected_images/{filename}_.png', crop_img)
 
 def applyCV(data, graph, categories, data_for_timestep):
@@ -187,8 +199,8 @@ if __name__ == '__main__':
     categories = load_category_index()
 
     print('Categories', categories)
-    for i,o in enumerate(observations):
-        logger.info(f"Analyzing video {i}/{len(observations)}")
+    for i,o in enumerate(observations[args.num_vids_to_skip : args.num_vids_to_analyze + args.num_vids_to_skip]):
+        logger.info(f"Analyzing video {i+args.num_vids_to_skip}/{len(observations)} {o['_id']}")
 
         location_times = o['location_times']
         location_times = [parser.parse(t) for t in location_times]
@@ -202,12 +214,15 @@ if __name__ == '__main__':
         total_time_seconds = 60 * 5  # Assume constant video length of 5 minutes
         time_per_frame = total_time_seconds / number_of_frames  # Assume constant frame time
 
+        frameCounter = 0
         new_time = start_time
         while (cap.isOpened()):
-
             # Capture frame-by-frame
             ret, frame = cap.read()
             if ret:
+                logger.debug(f'Frame {frameCounter} / {number_of_frames}')
+                frameCounter += 1
+
                 new_time = new_time + timedelta(seconds=time_per_frame)
                 nearest_time = nearest(location_times, new_time)
                 time_index = location_times.index(nearest_time)
