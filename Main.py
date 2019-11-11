@@ -22,6 +22,7 @@ from sklearn.metrics import classification_report
 from skimage.transform import resize
 from imutils import paths
 import matplotlib.pyplot as plt
+from util.ImageLoader import load_images_centered
 import numpy as np
 import argparse
 import pickle
@@ -65,9 +66,42 @@ def autoencoder(image_shape):
                   metrics=["mean_squared_error"])
     return model
 
+def train_on_images():
+    config = tf.ConfigProto(device_count={'CPU': 2})
+    sess = tf.Session(config=config)
+    keras.backend.set_session(sess)
+    images = load_images_centered()
+    max_x = max([i.shape[0] for i in images])
+    max_y = max([i.shape[1] for i in images])
+
+    epochs = 1
+    model = autoencoder((max_x, max_y, 3))
+
+    def centered_image_generator():
+        for i in images[:10]:
+            i = np.expand_dims(i, axis=0)
+            yield (i,i)
+
+    model.fit_generator(centered_image_generator(), epochs=epochs, steps_per_epoch=10)
+
+    for i in images[:10]:
+        plt.imshow(i)
+        plt.show()
+
+        i = np.expand_dims(i, axis=0)
+        pred = model.predict(i)
+        print("Prediction", pred)
+        for p in pred:
+            plt.imshow(p)
+            plt.show()
+            p = resize(p, actual_image_shape)
+            plt.imshow(p)
+            plt.show()
+        break
 
 if __name__ == '__main__':
-
+    train_on_images()
+    exit(1)
     config = tf.ConfigProto(device_count={'CPU': 2})
     sess = tf.Session(config=config)
     keras.backend.set_session(sess)
@@ -88,6 +122,10 @@ if __name__ == '__main__':
             i = i / 255
             i = resize(i, (1, *image_shape))
             yield (i, i)
+
+    def centered_image_generator():
+        for i in load_images_centered():
+            yield (i,i)
 
 
     epoch_steps = len(os.listdir('output/frames'))

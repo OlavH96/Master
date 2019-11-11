@@ -10,7 +10,7 @@ import math
 def load_images(path):
     image_list = []
     image_names = []
-    for filename in glob.glob(path):
+    for filename in glob.glob(path)[:1000]:
         im = Image.open(filename)
         image_list.append(im)
         image_names.append(filename)
@@ -19,11 +19,8 @@ def load_images(path):
 
 def center_image_with_padding(image, x, y):
     old_size = image.size  # old_size[0] is in (width, height) format
-
-    ratio = float(x) / max(old_size)
-    new_size = tuple([int(x * ratio) for x in old_size])
-    delta_w = x - new_size[0]
-    delta_h = y - new_size[1]
+    delta_w = abs(x - old_size[0])
+    delta_h = abs(y - old_size[1])
     padding = (delta_w / 2,  # left
                delta_h / 2,  # top
                delta_w - (delta_w / 2),  # right
@@ -39,24 +36,30 @@ def center_image_with_padding(image, x, y):
         new_im = ImageOps.expand(new_im, (0, y_remain, 0, 0))
     return new_im
 
+def resize_image(image, new_x, new_y):
+
+    return image.resize((new_x, new_y), Image.NEAREST)
+
 
 def load_images_centered():
-    path = '../data/signs/*.png'
+    path = 'detected_images/*.png'
 
     images, names = load_images(path)
-    filtered_images = []
-    filtered_names = []
 
-    for i, n in zip(images, names):
-        im = np.array(i)
-        if im.shape[-1] != 4:
-            continue
-        filtered_images.append(i)
-        filtered_names.append(n)
+    max_x = max([i.size[0] for i in images])
+    max_y = max([i.size[1] for i in images])
 
-    max_x = max([i.size[0] for i in filtered_images])
-    max_y = max([i.size[1] for i in filtered_images])
+    fitted_images = list(map(lambda i: center_image_with_padding(i, max_x, max_y), images))
+    return np.array([np.array(i) for i in fitted_images])
 
-    fitted_images = list(map(lambda i: center_image_with_padding(i, max_x, max_y), filtered_images))
-    np_images = np.array([np.array(i) for i in fitted_images])
-    return np_images
+if __name__ == '__main__':
+
+    import time
+    start = time.time()
+    np_images = load_images_centered()
+    end = time.time()
+    print(end-start, "s")
+
+    for i in np_images[:10]:
+        plt.imshow(i)
+        plt.show()
