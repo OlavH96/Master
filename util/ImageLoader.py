@@ -52,6 +52,22 @@ def load_images_centered():
     fitted_images = list(map(lambda i: center_image_with_padding(i, max_x, max_y), images))
     return np.array([np.array(i) for i in fitted_images])
 
+def load_images_generator():
+    path = 'detected_images/*.png'
+    for filename in glob.glob(path):
+        im = Image.open(filename)
+        yield im
+
+def load_images_centered_generator():
+    path = 'detected_images/*.png'
+    max_x = 720
+    max_y = 1280
+
+    for filename in glob.glob(path):
+        im = Image.open(filename)
+        centered = center_image_with_padding(im, max_x, max_y)
+        yield np.array(centered)
+
 if __name__ == '__main__':
 
     import time
