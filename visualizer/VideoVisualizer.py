@@ -10,12 +10,12 @@ from prepare.Downloader import get_observations_with_video, download_videos_if_n
 import cv2
 from dateutil import parser
 from sign_detection.image_generation.objectdetection import download_model, load_category_index, \
-    run_inference_for_single_image, load_frozen_model
+    run_inference_for_single_image, load_frozen_model, run_inference_for_video
 from utils import label_map_util
 
 from utils import visualization_utils as vis_util
 from matplotlib import pyplot as plt
-import skvideo.io
+
 import math
 
 import argparse
@@ -147,6 +147,17 @@ def _crop_detected_objects_from_image(image, detection_box, data_for_timestep, p
     logger.info(f'Detected image {filename}, with mean {mean}')
     cv2.imwrite(f'./detected_images/{filename}_.png', crop_img)
 
+def analyze_single_frame(frame, num_detections, detection_boxes, detection_classes, detection_scores, categories, data_for_timestep):
+   
+   for i in range(int(num_detections)):
+       box = detection_boxes[i]
+       prediction = detection_classes[i]
+       prediction_score = detection_scores[i]
+
+       if args.extract and prediction_score >= args.extract_limit:
+           
+           _crop_detected_objects_from_image(frame, box, data_for_timestep, categories[prediction], prediction_score)
+
 def applyCV(data, graph, categories, data_for_timestep):
     if len(data.shape) != 4:
         data = np.expand_dims(data, axis=0)
@@ -161,14 +172,16 @@ def applyCV(data, graph, categories, data_for_timestep):
     data = data[0]
     if num_detections > 0:
 
-        for i in range(num_detections):
-            box = detection_boxes[i]
-            prediction = detection_classes[i]
-            prediction_score = detection_scores[i]
+        analyze_single_frame(data, num_detections, detection_boxes, detection_classes, detection_scores, categories, data_for_timestep)
 
-            if args.extract and prediction_score >= args.extract_limit:
-                
-                _crop_detected_objects_from_image(data, box, data_for_timestep, categories[prediction], prediction_score)
+       # for i in range(num_detections):
+       #     box = detection_boxes[i]
+       #     prediction = detection_classes[i]
+       #     prediction_score = detection_scores[i]
+
+       #     if args.extract and prediction_score >= args.extract_limit:
+       #         
+       #         _crop_detected_objects_from_image(data, box, data_for_timestep, categories[prediction], prediction_score)
 
         if args.visual:
             vis_util.visualize_boxes_and_labels_on_image_array(
@@ -183,6 +196,54 @@ def applyCV(data, graph, categories, data_for_timestep):
 
     return data
 
+
+def video_to_np(observation):
+    cap = cv2.VideoCapture(str(observation['video_file']))
+    frameCount = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
+    frameWidth = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
+    frameHeight = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+    
+    buf = np.empty((frameCount, frameHeight, frameWidth, 3), np.dtype('uint8'))
+    
+    fc = 0
+    ret = True
+    
+    while (fc < frameCount  and ret):
+        ret, buf[fc] = cap.read()
+        fc += 1
+
+    cap.release()
+    return buf
+
+def analyze_video_results(video_np, output_dict, categories, observation, to_observe, frame_index_start, frame_total):
+
+    num_detections = output_dict['num_detections']
+    detection_boxes = output_dict['detection_boxes']
+    detection_classes = output_dict['detection_classes']
+    detection_scores = output_dict['detection_scores']
+    #logger.info(f'{num_detections}, {len(num_detections)}')
+    #logger.info(f'{detection_boxes}, {len(detection_boxes)}')
+    #logger.info(f'{detection_classes}, {len(detection_classes)}')
+    #logger.info(f'{detection_scores}, {len(detection_scores)}')
+
+    for i, (video_frame, num_detect, detection_box, detection_class, detection_score) in enumerate(zip(video_np, num_detections, detection_boxes, detection_classes, detection_scores)):
+        logger.debug(f'Frame {i} / {len(video_np)}, num-detections: {num_detect}')
+        data_for_timestep = data_for_frame_from_observation(observation, to_observe, frame_index_start+i, frame_total)
+        analyze_single_frame(video_frame, num_detect, detection_box, detection_class, detection_score, categories, data_for_timestep)
+
+def data_for_frame_from_observation(observation, to_observe, frame_index, frame_total):
+    location_times = observation['location_times']
+    location_times = [parser.parse(t) for t in location_times]
+    start_time = location_times[0]
+
+    total_time_seconds = 60 * 5  # Assume constant video length of 5 minutes
+    time_per_frame = total_time_seconds / number_of_frames  # Assume constant frame time
+    new_time = start_time+ timedelta(seconds=time_per_frame*frame_index)
+    nearest_time = nearest(location_times, new_time)
+    time_index = location_times.index(nearest_time)
+
+    data_for_timestep = [v[time_index] for v in to_observe[1:]]  # Data excluding time
+    return data_for_timestep
 
 if __name__ == '__main__':
     print("Arguments", args)
@@ -214,6 +275,25 @@ if __name__ == '__main__':
         total_time_seconds = 60 * 5  # Assume constant video length of 5 minutes
         time_per_frame = total_time_seconds / number_of_frames  # Assume constant frame time
 
+        videodata = video_to_np(o)
+        split_size = 500 # frames in a batch
+        num_chunks = int(len(videodata) / split_size)
+        split_video = np.array_split(videodata, num_chunks) 
+        import time
+        frame_start_index = 0
+        for i, data in enumerate(split_video):
+            start = time.time()
+            logger.info(f'Starting batch inference {i} / {len(split_video)}, number of frames = {len(data)}')
+            o_dict = run_inference_for_video(data, graph)
+            logger.info(f'Completed batch inference {i} / {len(split_video)}, time used = {time.time()-start}s')
+            logger.info(f"Output dict whole vid {o_dict}")
+            logger.info(f'Starting batch analysis {i} / {len(split_video)}')
+            analyze_video_results(data, o_dict, categories, o, to_observe, frame_start_index, number_of_frames)
+            logger.info(f'Completed batch analysis {i} / {len(split_video)}')
+            frame_start_index += len(data)
+            
+        continue
+        
         frameCounter = 0
         new_time = start_time
         while (cap.isOpened()):
