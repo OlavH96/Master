@@ -40,6 +40,19 @@ def resize_image(image, new_x, new_y):
 
     return image.resize((new_x, new_y), Image.NEAREST)
 
+def find_max_min_image_size(path = 'detected_images/*.png'):
+    max_x = 0
+    max_y = 0
+
+    for i in load_images_generator(path):
+        w, h = i.size
+        if w > max_x:
+            max_x = w
+        if h > max_y:
+            max_y = h
+        del i
+
+    return max_x, max_y
 
 def load_images_centered():
     path = 'detected_images/*.png'
@@ -52,16 +65,12 @@ def load_images_centered():
     fitted_images = list(map(lambda i: center_image_with_padding(i, max_x, max_y), images))
     return np.array([np.array(i) for i in fitted_images])
 
-def load_images_generator():
-    path = 'detected_images/*.png'
+def load_images_generator(path = 'detected_images/*.png'):
     for filename in glob.glob(path):
         im = Image.open(filename)
         yield im
 
-def load_images_centered_generator():
-    path = 'detected_images/*.png'
-    max_x = 720
-    max_y = 1280
+def load_images_centered_generator(max_x = 1280, max_y = 720, path='detected_images/*.png'):
 
     for filename in glob.glob(path):
         im = Image.open(filename)
@@ -70,12 +79,12 @@ def load_images_centered_generator():
 
 if __name__ == '__main__':
 
-    import time
-    start = time.time()
-    np_images = load_images_centered()
-    end = time.time()
-    print(end-start, "s")
+   # import time
+   # start = time.time()
+   # np_images = load_images_centered()
+   # end = time.time()
+   # print(end-start, "s")
 
-    for i in np_images[:10]:
+    for i in load_images_centered_generator():
         plt.imshow(i)
         plt.show()
