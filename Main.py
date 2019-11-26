@@ -31,7 +31,7 @@ from sklearn.metrics import classification_report
 from skimage.transform import resize
 from imutils import paths
 import matplotlib.pyplot as plt
-from util.ImageLoader import load_images_centered, load_images_centered_generator, load_images_generator, find_max_min_image_size
+from util.ImageLoader import load_images_centered, load_images_centered_generator, load_images_generator, find_max_min_image_size, resize_image
 import numpy as np
 import argparse
 import pickle
@@ -39,25 +39,28 @@ import cv2
 import logging as log
 
 # https://medium.com/analytics-vidhya/building-a-convolutional-autoencoder-using-keras-using-conv2dtranspose-ca403c8d144e
-def conv_autoencoder(io_shape):
+def conv_autoencoder(io_shape, num_reductions=5, filter_reduction_on=2, num_filters_start=32, increasing=True):
     image_x = io_shape[0]
     image_y = io_shape[1]
     image_z = io_shape[2]
-    num_reductions = 3
     
-    num_filters_low = 16
-    num_filters_high = 32
-    
-
     inp = Input(io_shape)
-    e = Conv2D(num_filters_low, (3, 3), activation='relu', padding="same")(inp)
-    e = MaxPooling2D((2, 2), strides=2, padding="same")(e)
-    
-    for _ in range(num_reductions):
-        e = Conv2D(num_filters_high, (3, 3), activation='relu', padding="same")(e)
-        e = MaxPooling2D((2, 2), strides=2, padding="same")(e)
+    #e = Conv2D(num_filters_low, (3, 3), activation='relu', padding="same")(inp)
+    #e = MaxPooling2D((2, 2), strides=2, padding="same")(e)
+    e = inp 
 
-    e = Conv2D(num_filters_high, (3, 3), activation='relu', padding="same")(e)
+    num_filters = num_filters_start
+    for i, _ in enumerate(range(num_reductions)):
+        e = Conv2D(num_filters, (3, 3), activation='relu', padding="same")(e)
+        e = MaxPooling2D((2, 2), strides=2, padding="same")(e)
+        
+        if i % filter_reduction_on == 0:
+            if increasing:
+                num_filters = int(num_filters * 2)
+            else:
+                num_filters = int(num_filters / 2)
+
+    e = Conv2D(num_filters, (3, 3), activation='relu', padding="same")(e)
 
     s = [int(i) for i in e.shape[1:]]
     #s[-1] = 1
@@ -66,19 +69,24 @@ def conv_autoencoder(io_shape):
     reshape_shape = s
 
     l = Flatten()(e)
-    l = Dense(dense_size, activation='softmax')(l)
+    l = Dense(dense_size, activation='relu')(l)
 
     #DECODER
     d = Reshape(reshape_shape)(l)
     
-    for _ in range(num_reductions+1):
-        d = Conv2DTranspose(num_filters_high,(3, 3), strides=2, activation='relu', padding='same')(d)
-
-    d = Conv2DTranspose(num_filters_low,(3, 3), activation='relu', padding='same')(d)
+    for i, _ in enumerate(range(num_reductions)):
+        d = Conv2DTranspose(num_filters,(3, 3), strides=2, activation='relu', padding='same')(d)
+        
+        if i % filter_reduction_on == 0:
+            if increasing:
+                num_filters = int(num_filters / 2)
+            else:
+                num_filters = int(num_filters * 2)
 
     decoded = Conv2D(3, (3, 3), activation='sigmoid', padding='same')(d)
     ae = Model(inp, decoded)
-    ae.compile(optimizer="adam", loss="mse")
+    customAdam = keras.optimizers.Adam(lr=0.01, amsgrad=True)
+    ae.compile(optimizer=customAdam, loss="mse")
     ae.summary()
     
     assert ae.output_shape[1:] == io_shape, f'Output Shape {decoded.shape} is not equal input shape {io_shape}'
@@ -120,57 +128,66 @@ def autoencoder(image_shape):
                   metrics=["mean_squared_error"])
     return model
 
+def centered_image_generator(path, max_x, max_y):
+    for i in load_images_generator(path):
+        i = resize_image(i, max_x, max_y)
+        i = np.array(i)
+        i = np.expand_dims(i, axis=0)
+        i = i / 255
+        yield (i,i)
+
+max_x = 32 #304 # 1280 , nearest power of 2
+max_y = 32 # 298 # 720
+path = 'detected_images/362*'
+
 def train_on_images():
     sess = tf.Session()
     keras.backend.set_session(sess)
 
     #max_x = max([i.shape[0] for i in images])
     #max_y = max([i.shape[1] for i in images])
-    max_x = 512 #304 # 1280 , nearest power of 2
-    max_y = 512 # 298 # 720
     #max_x, max_y = find_max_min_image_size(path = 'detected_images/*.png')
     #print(max_x, max_y) # 304, 298
 
     epochs = 10
     shape = (max_y, max_x, 3)
-    model = conv_autoencoder(shape)#autoencoder(shape)
-    path = 'detected_images/362.*'
+    # 4,2,64 decreasing, 4,2,16 increasing
+    model = conv_autoencoder(shape, num_reductions=4, filter_reduction_on=2, num_filters_start=16, increasing=True)#autoencoder(shape)
     steps = len(glob.glob(path))
+
     # define the checkpoint
     filepath = "model.h5"
     checkpoint = ModelCheckpoint(filepath, monitor='loss', verbose=1, save_best_only=True, mode='min')
     callbacks_list = [checkpoint]
 
-    def centered_image_generator():
-        for i in load_images_centered_generator(max_x, max_y, path):
-            i = np.expand_dims(i, axis=0)
-            i = i / 255
-            yield (i,i)
     log.info('Fitting model...')
-    model.fit_generator(centered_image_generator(), epochs=epochs, steps_per_epoch=int(steps/epochs), callbacks=callbacks_list)
+    history = model.fit_generator(centered_image_generator(path, max_x, max_y), epochs=epochs, steps_per_epoch=int(steps/epochs), callbacks=callbacks_list)
+    loss = history.history['loss']
+    plt.plot(loss)
+    plt.ylabel("Loss")
+    plt.xlabel("Epoch")
+    plt.savefig("training_loss.png")
+    
     log.info('Finished fitting model')
     model.save("autoencoder.h5")
 
+import random
 def load_model_and_predict():
 
     model = load_model('model.h5')
     
-    max_x = 512 #304 # 1280 , nearest power of 2
-    max_y = 512 # 298 # 720
-    path = 'detected_images/362.*'
-
-    def centered_image_generator():
-        for i in load_images_centered_generator(max_x, max_y, path):
-            i = np.expand_dims(i, axis=0)
-            i = i / 255
-            yield (i,i)
+    #max_x = 512 #304 # 1280 , nearest power of 2
+    #max_y = 512 # 298 # 720
+    images = list(centered_image_generator(path, max_x, max_y))
+    random.shuffle(images)
     index = 0
-    for i, target in centered_image_generator():
+    for i, target in images: #centered_image_generator(path, max_x, max_y):
         plt.imsave(f'predictions/orig{index}.png',i[0])
         pred = model.predict(i)
+        evaluate = model.evaluate(i, target)
+        print(evaluate)
         for p in pred:
-            print("pred", p)
-            plt.imsave(f'predictions/pred{index}.png',p)
+            plt.imsave(f'predictions/pred{index}.png',p, vmin = 0, vmax=1)
 
         index += 1
         if index == 10:
@@ -179,46 +196,3 @@ def load_model_and_predict():
 if __name__ == '__main__':
     train_on_images()
     load_model_and_predict()
-    exit(0)
-    config = tf.ConfigProto(device_count={'CPU': 2})
-    sess = tf.Session(config=config)
-    keras.backend.set_session(sess)
-
-    scale_factor = 30
-    actual_image_shape = (720, 1280, 3)
-    image_shape = (
-        int(actual_image_shape[0] / scale_factor),
-        int(actual_image_shape[1] / scale_factor),
-        actual_image_shape[2]
-    )
-    epochs = 1
-    model = autoencoder(image_shape)
-    path = 'data/test.mp4'
-
-    def image_generator():
-        for i in VideoLoader.load_images(path=path):
-            i = i / 255
-            i = resize(i, (1, *image_shape))
-            yield (i, i)
-
-    def centered_image_generator():
-        for i in load_images_centered():
-            yield (i,i)
-
-
-    epoch_steps = len(os.listdir('output/frames'))
-    model.fit_generator(image_generator(), epochs=epochs, steps_per_epoch=10)
-
-    model.save('model.h5')
-    for i in VideoLoader.load_images(path=path):
-        plt.imshow(i)
-        plt.show()
-
-        i = i / 255
-        i = resize(i, (1, *image_shape))
-        pred = model.predict(i)
-        for p in pred:
-            p = resize(p, actual_image_shape)
-            plt.imshow(p)
-            plt.show()
-        break
