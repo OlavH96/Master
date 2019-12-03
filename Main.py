@@ -114,7 +114,7 @@ def autoencoder(image_shape):
     x = layers.Dense(middle_layer_size, activation='relu', name='middle_layer')(x)
     x = layers.Dense(translator_layer_size, activation='relu', name='decoder')(x)
 
-    outputs = layers.Dense(total_pixels, activation='relu', name='reconstructed_cat')(x)
+    outputs = layers.Dense(total_pixels, activation='sigmoid', name='reconstructed_cat')(x)
     outputs = layers.Reshape(image_shape)(outputs)
 
     model = keras.Model(inputs=inputs, outputs=outputs)
@@ -126,9 +126,10 @@ def autoencoder(image_shape):
                   loss="mean_squared_error",
                   # List of metrics to monitor
                   metrics=["mean_squared_error"])
+    model.summary()
     return model
 
-def centered_image_generator(path, max_x, max_y):
+def image_generator(path, max_x, max_y):
     for i in load_images_generator(path):
         i = resize_image(i, max_x, max_y)
         i = np.array(i)
@@ -136,8 +137,13 @@ def centered_image_generator(path, max_x, max_y):
         i = i / 255
         yield (i,i)
 
-max_x = 32 #304 # 1280 , nearest power of 2
-max_y = 32 # 298 # 720
+def centered_image_generator(path, max_x, max_y):
+    while True:
+        for i,o in image_generator(path, max_x, max_y):
+            yield (i, o)
+
+max_x = 64#304 # 1280 , nearest power of 2
+max_y = 64 # 298 # 720
 path = 'detected_images/362*'
 
 def train_on_images():
@@ -152,7 +158,8 @@ def train_on_images():
     epochs = 10
     shape = (max_y, max_x, 3)
     # 4,2,64 decreasing, 4,2,16 increasing
-    model = conv_autoencoder(shape, num_reductions=4, filter_reduction_on=2, num_filters_start=16, increasing=True)#autoencoder(shape)
+    #model = conv_autoencoder(shape, num_reductions=4, filter_reduction_on=2, num_filters_start=16, increasing=True)#autoencoder(shape)
+    model = autoencoder(shape)
     steps = len(glob.glob(path))
 
     # define the checkpoint
@@ -161,7 +168,7 @@ def train_on_images():
     callbacks_list = [checkpoint]
 
     log.info('Fitting model...')
-    history = model.fit_generator(centered_image_generator(path, max_x, max_y), epochs=epochs, steps_per_epoch=int(steps/epochs), callbacks=callbacks_list)
+    history = model.fit_generator(centered_image_generator(path, max_x, max_y), epochs=epochs, steps_per_epoch=steps, callbacks=callbacks_list)
     loss = history.history['loss']
     plt.plot(loss)
     plt.ylabel("Loss")
@@ -175,10 +182,10 @@ import random
 def load_model_and_predict():
 
     model = load_model('model.h5')
-    
+    model.summary()
     #max_x = 512 #304 # 1280 , nearest power of 2
     #max_y = 512 # 298 # 720
-    images = list(centered_image_generator(path, max_x, max_y))
+    images = list(image_generator(path, max_x, max_y))
     random.shuffle(images)
     index = 0
     for i, target in images: #centered_image_generator(path, max_x, max_y):
@@ -194,5 +201,5 @@ def load_model_and_predict():
             break
 
 if __name__ == '__main__':
-    train_on_images()
+    #train_on_images()
     load_model_and_predict()
