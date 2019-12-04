@@ -1,53 +1,28 @@
 import configparser
-from pathlib import Path
-from datetime import timedelta
 import os
-os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2' 
+from datetime import timedelta
+from pathlib import Path
+
 import numpy as np
 
 from prepare.Downloader import get_observations_with_video, download_videos_if_not_exists, tie_observations_to_videos, \
     save_observations_as_json, load_observations_from_json
 import cv2
 from dateutil import parser
-from sign_detection.image_generation.objectdetection import download_model, load_category_index, \
+from sign_detection.image_generation.objectdetection import load_category_index, \
     run_inference_for_single_image, load_frozen_model, run_inference_for_video
-from utils import label_map_util
 
 from utils import visualization_utils as vis_util
-from matplotlib import pyplot as plt
+from util.Arguments import visualizer_arguments
 
 import math
 
-import argparse
 import logging
+
+os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
+
 logger = logging.getLogger('VideoLogger')
 logger.setLevel(logging.DEBUG)
-
-aparser = argparse.ArgumentParser(description='Run video analysis.')
-aparser.add_argument('--no-visual', dest='visual', action='store_false', help='Run without displaying video feed')
-aparser.set_defaults(visual=True)
-
-aparser.add_argument('--do-not-use-cached', dest='cached', action='store_false',
-                     help='Run using downloaded observations and videos')
-aparser.set_defaults(cached=True)
-
-aparser.add_argument('--extract-detected', dest='extract', action='store_true',
-                     help='Extract and save detected objects')
-aparser.set_defaults(extract=False)
-
-aparser.add_argument('--extraction-certainty', dest='extract_limit', type=float,
-                     help='Prediction certainty for extracting image')
-aparser.set_defaults(extract_limit=0.5)
-
-aparser.add_argument('--number-of-videos', dest='num_vids_to_analyze', type=int,
-                     help='Number of videos to analyze')
-aparser.set_defaults(num_vids_to_analyze=1000)
-
-aparser.add_argument('--skip', dest='num_vids_to_skip', type=int,
-                     help='Number of videos to skip')
-aparser.set_defaults(num_vids_to_skip=0)
-
-args = aparser.parse_args()
 
 root_dir = Path.cwd()  # .parent
 
@@ -136,27 +111,28 @@ def _crop_detected_objects_from_image(image, detection_box, data_for_timestep, p
     ymax = math.ceil(ymax)
 
     crop_img = image[ymin:ymax, xmin:xmax]
-    mean = np.mean(crop_img/255)
-    if mean < 0.1: 
+    mean = np.mean(crop_img / 255)
+    if mean < 0.1:
         logger.info(f'Discarded image for being too black: score: {score}, mean: {mean}')
         cv2.imwrite(f'./detected_images/ignored_{mean}_.png', crop_img)
         return  # Black image === its a cencored car
-    
+
     filename = f'{prediction["name"]}_{score}_'
     filename += '_'.join(str(i) for i in data_for_timestep)
     logger.info(f'Detected image {filename}, with mean {mean}')
     cv2.imwrite(f'./detected_images/{filename}_.png', crop_img)
 
-def analyze_single_frame(frame, num_detections, detection_boxes, detection_classes, detection_scores, categories, data_for_timestep):
-   
-   for i in range(int(num_detections)):
-       box = detection_boxes[i]
-       prediction = detection_classes[i]
-       prediction_score = detection_scores[i]
 
-       if args.extract and prediction_score >= args.extract_limit:
-           
-           _crop_detected_objects_from_image(frame, box, data_for_timestep, categories[prediction], prediction_score)
+def analyze_single_frame(frame, num_detections, detection_boxes, detection_classes, detection_scores, categories,
+                         data_for_timestep):
+    for i in range(int(num_detections)):
+        box = detection_boxes[i]
+        prediction = detection_classes[i]
+        prediction_score = detection_scores[i]
+
+        if args.extract and prediction_score >= args.extract_limit:
+            _crop_detected_objects_from_image(frame, box, data_for_timestep, categories[prediction], prediction_score)
+
 
 def applyCV(data, graph, categories, data_for_timestep):
     if len(data.shape) != 4:
@@ -172,16 +148,17 @@ def applyCV(data, graph, categories, data_for_timestep):
     data = data[0]
     if num_detections > 0:
 
-        analyze_single_frame(data, num_detections, detection_boxes, detection_classes, detection_scores, categories, data_for_timestep)
+        analyze_single_frame(data, num_detections, detection_boxes, detection_classes, detection_scores, categories,
+                             data_for_timestep)
 
-       # for i in range(num_detections):
-       #     box = detection_boxes[i]
-       #     prediction = detection_classes[i]
-       #     prediction_score = detection_scores[i]
+        # for i in range(num_detections):
+        #     box = detection_boxes[i]
+        #     prediction = detection_classes[i]
+        #     prediction_score = detection_scores[i]
 
-       #     if args.extract and prediction_score >= args.extract_limit:
-       #         
-       #         _crop_detected_objects_from_image(data, box, data_for_timestep, categories[prediction], prediction_score)
+        #     if args.extract and prediction_score >= args.extract_limit:
+        #
+        #         _crop_detected_objects_from_image(data, box, data_for_timestep, categories[prediction], prediction_score)
 
         if args.visual:
             vis_util.visualize_boxes_and_labels_on_image_array(
@@ -202,34 +179,37 @@ def video_to_np(observation):
     frameCount = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
     frameWidth = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
     frameHeight = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
-    
+
     buf = np.empty((frameCount, frameHeight, frameWidth, 3), np.dtype('uint8'))
-    
+
     fc = 0
     ret = True
-    
-    while (fc < frameCount  and ret):
+
+    while (fc < frameCount and ret):
         ret, buf[fc] = cap.read()
         fc += 1
 
     cap.release()
     return buf
 
-def analyze_video_results(video_np, output_dict, categories, observation, to_observe, frame_index_start, frame_total):
 
+def analyze_video_results(video_np, output_dict, categories, observation, to_observe, frame_index_start, frame_total):
     num_detections = output_dict['num_detections']
     detection_boxes = output_dict['detection_boxes']
     detection_classes = output_dict['detection_classes']
     detection_scores = output_dict['detection_scores']
-    #logger.info(f'{num_detections}, {len(num_detections)}')
-    #logger.info(f'{detection_boxes}, {len(detection_boxes)}')
-    #logger.info(f'{detection_classes}, {len(detection_classes)}')
-    #logger.info(f'{detection_scores}, {len(detection_scores)}')
+    # logger.info(f'{num_detections}, {len(num_detections)}')
+    # logger.info(f'{detection_boxes}, {len(detection_boxes)}')
+    # logger.info(f'{detection_classes}, {len(detection_classes)}')
+    # logger.info(f'{detection_scores}, {len(detection_scores)}')
 
-    for i, (video_frame, num_detect, detection_box, detection_class, detection_score) in enumerate(zip(video_np, num_detections, detection_boxes, detection_classes, detection_scores)):
+    for i, (video_frame, num_detect, detection_box, detection_class, detection_score) in enumerate(
+            zip(video_np, num_detections, detection_boxes, detection_classes, detection_scores)):
         logger.debug(f'Frame {i} / {len(video_np)}, num-detections: {num_detect}')
-        data_for_timestep = data_for_frame_from_observation(observation, to_observe, frame_index_start+i, frame_total)
-        analyze_single_frame(video_frame, num_detect, detection_box, detection_class, detection_score, categories, data_for_timestep)
+        data_for_timestep = data_for_frame_from_observation(observation, to_observe, frame_index_start + i, frame_total)
+        analyze_single_frame(video_frame, num_detect, detection_box, detection_class, detection_score, categories,
+                             data_for_timestep)
+
 
 def data_for_frame_from_observation(observation, to_observe, frame_index, frame_total):
     location_times = observation['location_times']
@@ -238,14 +218,16 @@ def data_for_frame_from_observation(observation, to_observe, frame_index, frame_
 
     total_time_seconds = 60 * 5  # Assume constant video length of 5 minutes
     time_per_frame = total_time_seconds / number_of_frames  # Assume constant frame time
-    new_time = start_time+ timedelta(seconds=time_per_frame*frame_index)
+    new_time = start_time + timedelta(seconds=time_per_frame * frame_index)
     nearest_time = nearest(location_times, new_time)
     time_index = location_times.index(nearest_time)
 
     data_for_timestep = [v[time_index] for v in to_observe[1:]]  # Data excluding time
     return data_for_timestep
 
+
 if __name__ == '__main__':
+    args = visualizer_arguments()
     print("Arguments", args)
 
     if not args.cached:
@@ -260,8 +242,8 @@ if __name__ == '__main__':
     categories = load_category_index()
 
     print('Categories', categories)
-    for i,o in enumerate(observations[args.num_vids_to_skip : args.num_vids_to_analyze + args.num_vids_to_skip]):
-        logger.info(f"Analyzing video {i+args.num_vids_to_skip}/{len(observations)} {o['_id']}")
+    for i, o in enumerate(observations[args.num_vids_to_skip: args.num_vids_to_analyze + args.num_vids_to_skip]):
+        logger.info(f"Analyzing video {i + args.num_vids_to_skip}/{len(observations)} {o['_id']}")
 
         location_times = o['location_times']
         location_times = [parser.parse(t) for t in location_times]
@@ -276,24 +258,25 @@ if __name__ == '__main__':
         time_per_frame = total_time_seconds / number_of_frames  # Assume constant frame time
 
         videodata = video_to_np(o)
-        split_size = 500 # frames in a batch
+        split_size = 500  # frames in a batch
         num_chunks = int(len(videodata) / split_size)
-        split_video = np.array_split(videodata, num_chunks) 
+        split_video = np.array_split(videodata, num_chunks)
         import time
+
         frame_start_index = 0
         for i, data in enumerate(split_video):
             start = time.time()
             logger.info(f'Starting batch inference {i} / {len(split_video)}, number of frames = {len(data)}')
             o_dict = run_inference_for_video(data, graph)
-            logger.info(f'Completed batch inference {i} / {len(split_video)}, time used = {time.time()-start}s')
+            logger.info(f'Completed batch inference {i} / {len(split_video)}, time used = {time.time() - start}s')
             logger.info(f"Output dict whole vid {o_dict}")
             logger.info(f'Starting batch analysis {i} / {len(split_video)}')
             analyze_video_results(data, o_dict, categories, o, to_observe, frame_start_index, number_of_frames)
             logger.info(f'Completed batch analysis {i} / {len(split_video)}')
             frame_start_index += len(data)
-            
+
         continue
-        
+
         frameCounter = 0
         new_time = start_time
         while (cap.isOpened()):

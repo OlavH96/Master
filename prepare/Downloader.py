@@ -4,7 +4,7 @@ import os
 from pathlib import Path
 import logging as logger
 import pickle
-import argparse
+from util.Arguments import downloader_arguments
 
 logger.getLogger().setLevel(logger.INFO)
 root_dir = Path.cwd()#.parent
@@ -96,15 +96,7 @@ def load_observations_from_json():
 
 if __name__ == '__main__':
 
-    aparser = argparse.ArgumentParser(description='Download videos from API')
-    aparser.add_argument('--num-videos', dest='num_videos', type=int,
-                         help='Number of videos to download')
-    aparser.set_defaults(num_videos=100)
-    
-    aparser.add_argument('--save', dest='save', action='store_true',
-                         help='Should save and store videos to json')
-    aparser.set_defaults(save=False)
-    args = aparser.parse_args()
+    args = downloader_arguments()
 
     observations = get_observations_with_video(limit=args.num_videos)
 

@@ -1,59 +1,34 @@
-# set the matplotlib backend so figures can be saved in the background
-import keras
-import matplotlib
-
-from util import VideoLoader
 import glob
 import os
+
+import keras
 import tensorflow as tf
-os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2' 
-# import the necessary packages
-from keras.preprocessing.image import ImageDataGenerator
+
 import keras.layers as layers
-from keras.layers.pooling import AveragePooling2D
-from keras.applications import ResNet50
-from keras.layers.core import Dropout
-from keras.layers.core import Flatten
-from keras.layers.core import Dense
-from keras.layers import Input
-from keras.models import Model
 from keras.models import load_model
-from keras.datasets import mnist
-from keras.models import Model, Sequential
-from keras.layers import Dense, Conv2D, Dropout, BatchNormalization, Input, Reshape, Flatten, Deconvolution2D, Conv2DTranspose, MaxPooling2D, UpSampling2D
-from keras.layers.advanced_activations import LeakyReLU
-from keras.optimizers import adam
-from keras.optimizers import SGD
+from keras.models import Model
+from keras.layers import Dense, Conv2D, Input, Reshape, Flatten, Conv2DTranspose, MaxPooling2D
 from keras.callbacks import ModelCheckpoint
-from sklearn.preprocessing import LabelBinarizer
-from sklearn.model_selection import train_test_split
-from sklearn.metrics import classification_report
-from skimage.transform import resize
-from imutils import paths
 import matplotlib.pyplot as plt
-from util.ImageLoader import load_images_centered, load_images_centered_generator, load_images_generator, find_max_min_image_size, resize_image
+from util.ImageLoader import load_images_generator, resize_image
 import numpy as np
-import argparse
-import pickle
-import cv2
 import logging as log
+import random
+from util.Arguments import anomaly_arguments
+
+os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
+
 
 # https://medium.com/analytics-vidhya/building-a-convolutional-autoencoder-using-keras-using-conv2dtranspose-ca403c8d144e
 def conv_autoencoder(io_shape, num_reductions=5, filter_reduction_on=2, num_filters_start=32, increasing=True):
-    image_x = io_shape[0]
-    image_y = io_shape[1]
-    image_z = io_shape[2]
-    
     inp = Input(io_shape)
-    #e = Conv2D(num_filters_low, (3, 3), activation='relu', padding="same")(inp)
-    #e = MaxPooling2D((2, 2), strides=2, padding="same")(e)
-    e = inp 
+    e = inp
 
     num_filters = num_filters_start
     for i, _ in enumerate(range(num_reductions)):
         e = Conv2D(num_filters, (3, 3), activation='relu', padding="same")(e)
         e = MaxPooling2D((2, 2), strides=2, padding="same")(e)
-        
+
         if i % filter_reduction_on == 0:
             if increasing:
                 num_filters = int(num_filters * 2)
@@ -63,7 +38,7 @@ def conv_autoencoder(io_shape, num_reductions=5, filter_reduction_on=2, num_filt
     e = Conv2D(num_filters, (3, 3), activation='relu', padding="same")(e)
 
     s = [int(i) for i in e.shape[1:]]
-    #s[-1] = 1
+    # s[-1] = 1
     prod_s = np.prod(s)
     dense_size = prod_s
     reshape_shape = s
@@ -71,12 +46,12 @@ def conv_autoencoder(io_shape, num_reductions=5, filter_reduction_on=2, num_filt
     l = Flatten()(e)
     l = Dense(dense_size, activation='relu')(l)
 
-    #DECODER
+    # DECODER
     d = Reshape(reshape_shape)(l)
-    
+
     for i, _ in enumerate(range(num_reductions)):
-        d = Conv2DTranspose(num_filters,(3, 3), strides=2, activation='relu', padding='same')(d)
-        
+        d = Conv2DTranspose(num_filters, (3, 3), strides=2, activation='relu', padding='same')(d)
+
         if i % filter_reduction_on == 0:
             if increasing:
                 num_filters = int(num_filters / 2)
@@ -88,9 +63,10 @@ def conv_autoencoder(io_shape, num_reductions=5, filter_reduction_on=2, num_filt
     customAdam = keras.optimizers.Adam(lr=0.01, amsgrad=True)
     ae.compile(optimizer=customAdam, loss="mse")
     ae.summary()
-    
+
     assert ae.output_shape[1:] == io_shape, f'Output Shape {decoded.shape} is not equal input shape {io_shape}'
     return ae
+
 
 def autoencoder(image_shape):
     image_x = image_shape[0]
@@ -129,36 +105,35 @@ def autoencoder(image_shape):
     model.summary()
     return model
 
+
 def image_generator(path, max_x, max_y):
     for i in load_images_generator(path):
         i = resize_image(i, max_x, max_y)
         i = np.array(i)
         i = np.expand_dims(i, axis=0)
         i = i / 255
-        yield (i,i)
+        yield (i, i)
+
 
 def centered_image_generator(path, max_x, max_y):
     while True:
-        for i,o in image_generator(path, max_x, max_y):
+        for i, o in image_generator(path, max_x, max_y):
             yield (i, o)
 
-max_x = 64#304 # 1280 , nearest power of 2
-max_y = 64 # 298 # 720
-path = 'detected_images/362*'
 
-def train_on_images():
+def train_on_images(epochs, max_x, max_y, path):
     sess = tf.Session()
     keras.backend.set_session(sess)
 
-    #max_x = max([i.shape[0] for i in images])
-    #max_y = max([i.shape[1] for i in images])
-    #max_x, max_y = find_max_min_image_size(path = 'detected_images/*.png')
-    #print(max_x, max_y) # 304, 298
+    # max_x = max([i.shape[0] for i in images])
+    # max_y = max([i.shape[1] for i in images])
+    # max_x, max_y = find_max_min_image_size(path = 'detected_images/*.png')
+    # print(max_x, max_y) # 304, 298
 
-    epochs = 10
+    epochs = epochs
     shape = (max_y, max_x, 3)
     # 4,2,64 decreasing, 4,2,16 increasing
-    #model = conv_autoencoder(shape, num_reductions=4, filter_reduction_on=2, num_filters_start=16, increasing=True)#autoencoder(shape)
+    # model = conv_autoencoder(shape, num_reductions=4, filter_reduction_on=2, num_filters_start=16, increasing=True)#autoencoder(shape)
     model = autoencoder(shape)
     steps = len(glob.glob(path))
 
@@ -168,38 +143,54 @@ def train_on_images():
     callbacks_list = [checkpoint]
 
     log.info('Fitting model...')
-    history = model.fit_generator(centered_image_generator(path, max_x, max_y), epochs=epochs, steps_per_epoch=steps, callbacks=callbacks_list)
+    history = model.fit_generator(centered_image_generator(path, max_x, max_y), epochs=epochs, steps_per_epoch=steps,
+                                  callbacks=callbacks_list)
     loss = history.history['loss']
     plt.plot(loss)
     plt.ylabel("Loss")
     plt.xlabel("Epoch")
     plt.savefig("training_loss.png")
-    
+
     log.info('Finished fitting model')
     model.save("autoencoder.h5")
 
-import random
-def load_model_and_predict():
 
-    model = load_model('model.h5')
+def load_model_and_predict(model_path, num_predictions, path, max_x, max_y):
+    model = load_model(model_path)
     model.summary()
-    #max_x = 512 #304 # 1280 , nearest power of 2
-    #max_y = 512 # 298 # 720
     images = list(image_generator(path, max_x, max_y))
     random.shuffle(images)
     index = 0
-    for i, target in images: #centered_image_generator(path, max_x, max_y):
-        plt.imsave(f'predictions/orig{index}.png',i[0])
+    for i, target in images:  # centered_image_generator(path, max_x, max_y):
+        plt.imsave(f'predictions/orig{index}.png', i[0])
         pred = model.predict(i)
         evaluate = model.evaluate(i, target)
         print(evaluate)
         for p in pred:
-            plt.imsave(f'predictions/pred{index}.png',p, vmin = 0, vmax=1)
+            plt.imsave(f'predictions/pred{index}.png', p, vmin=0, vmax=1)
 
         index += 1
-        if index == 10:
+        if index == num_predictions:
             break
 
+
 if __name__ == '__main__':
-    #train_on_images()
-    load_model_and_predict()
+
+    args = anomaly_arguments()
+    log.info('Arguments', args)
+
+    if args.do_training:
+        train_on_images(
+            epochs=args.epochs,
+            path=args.path,
+            max_x=args.max_x,
+            max_y=args.max_y
+        )
+    if args.do_predict:
+        load_model_and_predict(
+            model_path=args.model,
+            num_predictions=args.num_predictions,
+            max_x=args.max_x,
+            max_y=args.max_y,
+            path=args.path
+        )
