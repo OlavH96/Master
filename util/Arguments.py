@@ -68,6 +68,15 @@ def anomaly_arguments():
         help='Path to examples'
     )
 
+    parser.add_argument(
+        '--architecture',
+        dest='model_type',
+        choices=['conv','fully-connected','vae'],
+        type=str,
+        default='fully-connected',
+        help='Type of anomaly model architecture'
+    )
+
     return parser.parse_args()
 
 

@@ -7,7 +7,7 @@ import tensorflow as tf
 import keras.layers as layers
 from keras.models import load_model
 from keras.models import Model
-from keras.layers import Dense, Conv2D, Input, Reshape, Flatten, Conv2DTranspose, MaxPooling2D
+#from keras.layers import Dense, Conv2D, Input, Reshape, Flatten, Conv2DTranspose, MaxPooling2D, Lambda
 from keras.callbacks import ModelCheckpoint
 import matplotlib.pyplot as plt
 from util.ImageLoader import load_images_generator, resize_image
@@ -15,8 +15,12 @@ import numpy as np
 import logging as log
 import random
 from util.Arguments import anomaly_arguments
+from keras import backend as K
+from keras import objectives
+from scipy.stats import norm
+from functools import reduce
 
-os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
+os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 
 
 # https://medium.com/analytics-vidhya/building-a-convolutional-autoencoder-using-keras-using-conv2dtranspose-ca403c8d144e
@@ -83,19 +87,19 @@ def autoencoder(image_shape):
     print(translator_layer_size)
     print(middle_layer_size)
 
-    inputs = keras.Input(shape=image_shape, name='cat_image')
-    x = layers.Flatten(name='flattened_cat')(inputs)  # turn image to vector.
+    inputs = keras.Input(shape=image_shape, name='image')
+    x = layers.Flatten(name='flattened')(inputs)  # turn image to vector.
 
     x = layers.Dense(translator_layer_size, activation='relu', name='encoder')(x)
     x = layers.Dense(middle_layer_size, activation='relu', name='middle_layer')(x)
     x = layers.Dense(translator_layer_size, activation='relu', name='decoder')(x)
 
-    outputs = layers.Dense(total_pixels, activation='sigmoid', name='reconstructed_cat')(x)
+    outputs = layers.Dense(total_pixels, activation='sigmoid', name='reconstructed')(x)
     outputs = layers.Reshape(image_shape)(outputs)
 
     model = keras.Model(inputs=inputs, outputs=outputs)
 
-    customAdam = keras.optimizers.Adam(lr=0.001)  # you have no idea how many times I changed this number
+    customAdam = keras.optimizers.Adam(lr=0.0001)
 
     model.compile(optimizer=customAdam,  # Optimizer
                   # Loss function to minimize
@@ -105,6 +109,67 @@ def autoencoder(image_shape):
     model.summary()
     return model
 
+def vae_loss(image_shape, log_var, mu):
+    print('\n\n\n\n\n', type(log_var), type(mu))
+
+    def custom_vae_loss(y_true, y_pred):
+        print("VAE Loss", y_true.shape, y_pred.shape)
+        xent_loss = image_shape[0]* image_shape[1]* objectives.binary_crossentropy(K.flatten(y_true), K.flatten(y_pred))
+        kl_loss = - 0.5 * K.sum(1 + log_var - K.square(mu) - K.exp(log_var), axis=-1)
+        vae_loss = K.mean(xent_loss + kl_loss)
+        return vae_loss
+
+    return custom_vae_loss 
+# https://github.com/lyeoni/keras-mnist-VAE/blob/master/keras-mnist-VAE.ipynb
+def vae_autoencoder(image_shape):
+    # network parameters
+    image_shape_flat = reduce(lambda x, y: x * y, image_shape)
+    batch_size, n_epoch = 1, 10
+    n_hidden, z_dim = 256, 2
+    print(image_shape)
+    # encoder
+    inputs  = layers.Input(shape=image_shape)
+    x = layers.Flatten(name='flattened')(inputs)  # turn image to vector.
+
+    x_encoded = layers.Dense(n_hidden, activation='relu')(x)
+
+    x_encoded = layers.Dense(n_hidden//2, activation='relu')(x_encoded)
+    
+    mu = layers.Dense(z_dim)(x_encoded)
+    log_var = layers.Dense(z_dim)(x_encoded)    
+
+    # sampling function
+    def sampling(args):
+        mu, log_var = args
+        eps = K.random_normal(shape=(batch_size, z_dim), mean=0., stddev=1.0)
+        return mu + K.exp(log_var) * eps
+
+    z = layers.Lambda(sampling, output_shape=(z_dim,))([mu, log_var])
+
+    # decoder
+    z_decoded = layers.Dense(n_hidden//2, activation='relu')(z)
+    z_decoded = layers.Dense(n_hidden, activation='relu')(z_decoded)
+    y = layers.Dense(image_shape_flat, activation='sigmoid')(z_decoded)
+    outputs = layers.Reshape(image_shape)(y)
+
+    # loss
+    #reconstruction_loss = objectives.binary_crossentropy(x, y) * image_shape_flat
+    #kl_loss = 0.5 * K.sum(K.square(mu) + K.exp(log_var) - log_var - 1, axis = -1)
+    #vae_loss = reconstruction_loss + kl_loss
+
+    #def my_vae_loss(y_true, y_pred):
+    #    print("VAE Loss", y_true.shape, y_pred.shape)
+    #    xent_loss = image_shape[0]* image_shape[1]* objectives.binary_crossentropy(K.flatten(y_true), K.flatten(y_pred))
+    #    kl_loss = - 0.5 * K.sum(1 + log_var - K.square(mu) - K.exp(log_var), axis=-1)
+    #    vae_loss = K.mean(xent_loss + kl_loss)
+    #    return vae_loss
+    
+    # build model
+    vae = Model(inputs, outputs)
+    #vae.add_loss(vae_loss)
+    vae.compile(optimizer='rmsprop', loss=vae_loss(image_shape, log_var, mu))
+    vae.summary()
+    return vae, log_var, mu
 
 def image_generator(path, max_x, max_y):
     for i in load_images_generator(path):
@@ -121,7 +186,7 @@ def centered_image_generator(path, max_x, max_y):
             yield (i, o)
 
 
-def train_on_images(epochs, max_x, max_y, path):
+def train_on_images(epochs, max_x, max_y, path, model_type):
     sess = tf.Session()
     keras.backend.set_session(sess)
 
@@ -132,9 +197,14 @@ def train_on_images(epochs, max_x, max_y, path):
 
     epochs = epochs
     shape = (max_y, max_x, 3)
-    # 4,2,64 decreasing, 4,2,16 increasing
-    # model = conv_autoencoder(shape, num_reductions=4, filter_reduction_on=2, num_filters_start=16, increasing=True)#autoencoder(shape)
-    model = autoencoder(shape)
+    if model_type == 'fully-connected':
+        model = autoencoder(shape)
+    if model_type == 'conv':
+        # 4,2,64 decreasing, 4,2,16 increasing
+        model = conv_autoencoder(shape, num_reductions=4, filter_reduction_on=2, num_filters_start=16, increasing=True)
+    if model_type == 'vae':
+        model, log_var, mu = vae_autoencoder(shape)
+
     steps = len(glob.glob(path))
 
     # define the checkpoint
@@ -143,21 +213,36 @@ def train_on_images(epochs, max_x, max_y, path):
     callbacks_list = [checkpoint]
 
     log.info('Fitting model...')
-    history = model.fit_generator(centered_image_generator(path, max_x, max_y), epochs=epochs, steps_per_epoch=steps,
-                                  callbacks=callbacks_list)
+    history = model.fit_generator(centered_image_generator(path, max_x, max_y), epochs=epochs, steps_per_epoch=steps, callbacks=callbacks_list)
     loss = history.history['loss']
-    plt.plot(loss)
-    plt.ylabel("Loss")
-    plt.xlabel("Epoch")
-    plt.savefig("training_loss.png")
+    #plt.plot(loss)
+    #plt.ylabel("Loss")
+    #plt.xlabel("Epoch")
+    #plt.savefig("training_loss.png")
 
     log.info('Finished fitting model')
     model.save("autoencoder.h5")
+    return model
 
 
-def load_model_and_predict(model_path, num_predictions, path, max_x, max_y):
-    model = load_model(model_path)
+def load_model_and_predict(model_path, num_predictions, path, max_x, max_y, model_type, model=None):
+    # vae_loss(image_shape=(max_x, max_y, 3), log_var=0.5, mu=0.5) 
+    im_shape = (max_x, max_y, 3)
+    if model_type == 'vae' and not model:
+        _, log_var, mu = vae_autoencoder(im_shape)
+        model = load_model(model_path, custom_objects={'custom_vae_loss': vae_loss(im_shape, log_var, mu)})
+        #model = load_model(model_path, custom_objects={'custom_vae_loss': lambda x,y: K.mean(np.array(0))})#vae_loss(im_shape, log_var, mu)})
+
+        mu = model.get_layer('dense_3')
+        log_var = model.get_layer('dense_4')
+
+        #model.add_loss(vae_loss(im_shape, log_var, mu))
+        model = load_model(model_path, custom_objects={'custom_vae_loss': vae_loss(im_shape, log_var, mu)})
+
+    if model_type != 'vae' and not model:
+        model = load_model(model_path)
     model.summary()
+
     images = list(image_generator(path, max_x, max_y))
     random.shuffle(images)
     index = 0
@@ -177,14 +262,17 @@ def load_model_and_predict(model_path, num_predictions, path, max_x, max_y):
 if __name__ == '__main__':
 
     args = anomaly_arguments()
+    
     log.info('Arguments', args)
-
+    print("Arguments", args)
+    model = None
     if args.do_training:
-        train_on_images(
+        model = train_on_images(
             epochs=args.epochs,
             path=args.path,
             max_x=args.max_x,
-            max_y=args.max_y
+            max_y=args.max_y,
+            model_type=args.model_type
         )
     if args.do_predict:
         load_model_and_predict(
@@ -192,5 +280,7 @@ if __name__ == '__main__':
             num_predictions=args.num_predictions,
             max_x=args.max_x,
             max_y=args.max_y,
-            path=args.path
+            path=args.path,
+            model_type=args.model_type,
+            model = model
         )

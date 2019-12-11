@@ -67,7 +67,7 @@ def load_images_centered():
 
 def load_images_generator(path = 'detected_images/*.png'):
     for filename in glob.glob(path):
-        im = Image.open(filename)
+        im = Image.open(filename).convert("RGB")
         yield im
 
 def load_images_centered_generator(max_x = 1280, max_y = 720, path='detected_images/*.png'):

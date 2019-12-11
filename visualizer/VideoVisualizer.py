@@ -21,7 +21,7 @@ import logging
 
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
 
-logger = logging.getLogger('VideoLogger')
+logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)
 
 root_dir = Path.cwd()  # .parent
@@ -83,8 +83,8 @@ def create_data_for_observation(o):
     to_observe = [
         o['location_times'],  # Time
         o['locations']['coordinates'],  # Coordinates
-        [a[1] for a in o['address']],  # Vegreferanse ? område
-        ['+' + str(int(a[2])) + 'm' for a in o['address']],  # vegref + meter
+        [a[1] if a != None else '' for a in o['address']],  # Vegreferanse ? område
+        [('+' + str(int(a[2])) + 'm') if a != None else '' for a in o['address']],  # vegref + meter
         *location_measurements_values
     ]
     return to_observe
@@ -105,6 +105,7 @@ def _get_box(image, detection_box):
 def _crop_detected_objects_from_image(image, detection_box, data_for_timestep, prediction, score):
     box_data = _get_box(image, detection_box)
     (xmin, xmax, ymin, ymax) = box_data
+    
     xmin = math.floor(xmin)
     ymin = math.floor(ymin)
     xmax = math.ceil(xmax)
@@ -186,7 +187,9 @@ def video_to_np(observation):
     ret = True
 
     while (fc < frameCount and ret):
-        ret, buf[fc] = cap.read()
+        ret, data = cap.read()
+        if ret and data != None:
+            buf[fc] = data
         fc += 1
 
     cap.release()
@@ -205,7 +208,7 @@ def analyze_video_results(video_np, output_dict, categories, observation, to_obs
 
     for i, (video_frame, num_detect, detection_box, detection_class, detection_score) in enumerate(
             zip(video_np, num_detections, detection_boxes, detection_classes, detection_scores)):
-        logger.debug(f'Frame {i} / {len(video_np)}, num-detections: {num_detect}')
+        #logger.debug(f'Frame {i} / {len(video_np)}, num-detections: {num_detect}')
         data_for_timestep = data_for_frame_from_observation(observation, to_observe, frame_index_start + i, frame_total)
         analyze_single_frame(video_frame, num_detect, detection_box, detection_class, detection_score, categories,
                              data_for_timestep)
@@ -259,7 +262,7 @@ if __name__ == '__main__':
 
         videodata = video_to_np(o)
         split_size = 500  # frames in a batch
-        num_chunks = int(len(videodata) / split_size)
+        num_chunks = len(videodata) // split_size
         split_video = np.array_split(videodata, num_chunks)
         import time
 
@@ -269,7 +272,6 @@ if __name__ == '__main__':
             logger.info(f'Starting batch inference {i} / {len(split_video)}, number of frames = {len(data)}')
             o_dict = run_inference_for_video(data, graph)
             logger.info(f'Completed batch inference {i} / {len(split_video)}, time used = {time.time() - start}s')
-            logger.info(f"Output dict whole vid {o_dict}")
             logger.info(f'Starting batch analysis {i} / {len(split_video)}')
             analyze_video_results(data, o_dict, categories, o, to_observe, frame_start_index, number_of_frames)
             logger.info(f'Completed batch analysis {i} / {len(split_video)}')
