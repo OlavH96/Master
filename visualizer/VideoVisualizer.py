@@ -188,7 +188,7 @@ def video_to_np(observation):
 
     while (fc < frameCount and ret):
         ret, data = cap.read()
-        if ret and data != None:
+        if ret and type(data) != type(None):
             buf[fc] = data
         fc += 1
 
@@ -240,6 +240,9 @@ if __name__ == '__main__':
         save_observations_as_json(observations)
     else:
         observations = load_observations_from_json()
+    
+    if not args.cached:
+        exit(1)    
 
     graph = load_frozen_model()
     categories = load_category_index()

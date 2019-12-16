@@ -19,6 +19,7 @@ from keras import backend as K
 from keras import objectives
 from scipy.stats import norm
 from functools import reduce
+from PIL import Image
 
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 
@@ -113,13 +114,20 @@ def vae_loss(image_shape, log_var, mu):
     print('\n\n\n\n\n', type(log_var), type(mu))
 
     def custom_vae_loss(y_true, y_pred):
-        print("VAE Loss", y_true.shape, y_pred.shape)
+        print("VAE Loss", y_true.shape, y_pred.shape, log_var, mu)
         xent_loss = image_shape[0]* image_shape[1]* objectives.binary_crossentropy(K.flatten(y_true), K.flatten(y_pred))
         kl_loss = - 0.5 * K.sum(1 + log_var - K.square(mu) - K.exp(log_var), axis=-1)
         vae_loss = K.mean(xent_loss + kl_loss)
         return vae_loss
 
     return custom_vae_loss 
+def get_dummy_loss(image_shape):
+    def dummy_loss(y_true, y_pred):
+        
+        xent_loss = image_shape[0]* image_shape[1]*objectives.binary_crossentropy(K.flatten(y_true), K.flatten(y_pred))
+        return K.mean(xent_loss)
+    return dummy_loss
+
 # https://github.com/lyeoni/keras-mnist-VAE/blob/master/keras-mnist-VAE.ipynb
 def vae_autoencoder(image_shape):
     # network parameters
@@ -172,7 +180,7 @@ def vae_autoencoder(image_shape):
     return vae, log_var, mu
 
 def image_generator(path, max_x, max_y):
-    for i in load_images_generator(path):
+    for i in load_images_generator(path, color_mode='HSV'):
         i = resize_image(i, max_x, max_y)
         i = np.array(i)
         i = np.expand_dims(i, axis=0)
@@ -186,7 +194,7 @@ def centered_image_generator(path, max_x, max_y):
             yield (i, o)
 
 
-def train_on_images(epochs, max_x, max_y, path, model_type):
+def train_on_images(epochs, max_x, max_y, path, model_type, model_name):
     sess = tf.Session()
     keras.backend.set_session(sess)
 
@@ -204,24 +212,26 @@ def train_on_images(epochs, max_x, max_y, path, model_type):
         model = conv_autoencoder(shape, num_reductions=4, filter_reduction_on=2, num_filters_start=16, increasing=True)
     if model_type == 'vae':
         model, log_var, mu = vae_autoencoder(shape)
+        print(log_var, mu)
 
     steps = len(glob.glob(path))
 
     # define the checkpoint
-    filepath = "model.h5"
+    filepath = model_name
     checkpoint = ModelCheckpoint(filepath, monitor='loss', verbose=1, save_best_only=True, mode='min')
     callbacks_list = [checkpoint]
 
     log.info('Fitting model...')
     history = model.fit_generator(centered_image_generator(path, max_x, max_y), epochs=epochs, steps_per_epoch=steps, callbacks=callbacks_list)
     loss = history.history['loss']
-    #plt.plot(loss)
-    #plt.ylabel("Loss")
-    #plt.xlabel("Epoch")
-    #plt.savefig("training_loss.png")
+
+    plt.plot(loss)
+    plt.ylabel("Loss")
+    plt.xlabel("Epoch")
+    plt.savefig(f'training_loss_{model_name}.png')
 
     log.info('Finished fitting model')
-    model.save("autoencoder.h5")
+    model.save(model_name)
     return model
 
 
@@ -233,36 +243,86 @@ def load_model_and_predict(model_path, num_predictions, path, max_x, max_y, mode
         model = load_model(model_path, custom_objects={'custom_vae_loss': vae_loss(im_shape, log_var, mu)})
         #model = load_model(model_path, custom_objects={'custom_vae_loss': lambda x,y: K.mean(np.array(0))})#vae_loss(im_shape, log_var, mu)})
 
-        mu = model.get_layer('dense_3')
-        log_var = model.get_layer('dense_4')
-
-        #model.add_loss(vae_loss(im_shape, log_var, mu))
-        model = load_model(model_path, custom_objects={'custom_vae_loss': vae_loss(im_shape, log_var, mu)})
+        max_x = model.input_shape[1]
+        max_y = model.input_shape[2]
+        #o = model.get_layer('dense_2')
+        #mu = model.get_layer('dense_3')(o)
+        #log_var = model.get_layer('dense_4')(o)
+        
+        model = load_model(model_path, custom_objects={'custom_vae_loss': get_dummy_loss((max_x, max_y, 3))})
+        #model = load_model(model_path, custom_objects={'custom_vae_loss': vae_loss((max_x, max_y, 3), mu, log_var)})
 
     if model_type != 'vae' and not model:
         model = load_model(model_path)
     model.summary()
+    print("Loaded Model", model, model.input_shape)
+    max_x = model.input_shape[1]
+    max_y = model.input_shape[2]
 
+    #create_manifold(model, max_x)
+    #exit(1)
     images = list(image_generator(path, max_x, max_y))
     random.shuffle(images)
     index = 0
+    print(f'Loaded {len(images)} images')
     for i, target in images:  # centered_image_generator(path, max_x, max_y):
-        plt.imsave(f'predictions/orig{index}.png', i[0])
         pred = model.predict(i)
         evaluate = model.evaluate(i, target)
+        for ii in i:
+            ii = Image.fromarray((ii * 255).astype(np.uint8), 'HSV')
+            ii = ii.convert("RGB")
+            ii = np.array(ii)
+            plt.imsave(f'predictions/orig{index}.png', ii)
+        
         print(evaluate)
         for p in pred:
-            plt.imsave(f'predictions/pred{index}.png', p, vmin=0, vmax=1)
+            p = Image.fromarray((p * 255).astype(np.uint8), 'HSV')
+            p = p.convert('RGB')
+            p = np.array(p)
+            plt.imsave(f'predictions/pred{index}_{str(evaluate)}.png', p, vmin=0, vmax=1)
 
         index += 1
         if index == num_predictions:
             break
 
+def create_manifold(generator, max_x):
+
+    n = 15 # figure with 15x15 digits
+    digit_size = max_x 
+    figure = np.zeros((digit_size * n, digit_size * n))
+    
+    grid_x = norm.ppf(np.linspace(0.05, 0.95, n)) 
+    grid_y = norm.ppf(np.linspace(0.05, 0.95, n))
+    
+    for i, yi in enumerate(grid_x):
+        for j, xi in enumerate(grid_y):
+            z_sample = np.array([[xi, yi]])
+            print(z_sample)
+            z_sample= z_sample[0].reshape(digit_size, digit_size)
+            x_decoded = generator.predict(z_sample)
+            digit = x_decoded[0].reshape(digit_size, digit_size)
+            figure[i * digit_size: (i + 1) * digit_size,
+                   j * digit_size: (j + 1) * digit_size] = digit
+    
+    plt.figure(figsize=(10, 10))
+    plt.imsave('sign_manifold.png', figure)
+    plt.imshow(figure, cmap='Greys_r')
+    plt.show()
 
 if __name__ == '__main__':
 
     args = anomaly_arguments()
-    
+
+    #i = Image.open('training_loss.png')
+    #orig = i
+    #i = i.convert('HSV')
+    #i = np.array(i)
+    #i = i / 255
+    #i = (i * 255).astype('uint8')
+    #i = Image.fromarray(i, 'HSV')
+    #i = i.convert("RGB")
+    #i.save('training_loss_rgb.png', "PNG")
+
     log.info('Arguments', args)
     print("Arguments", args)
     model = None
@@ -272,7 +332,8 @@ if __name__ == '__main__':
             path=args.path,
             max_x=args.max_x,
             max_y=args.max_y,
-            model_type=args.model_type
+            model_type=args.model_type,
+            model_name = args.model
         )
     if args.do_predict:
         load_model_and_predict(
