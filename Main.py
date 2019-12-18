@@ -7,7 +7,6 @@ import tensorflow as tf
 import keras.layers as layers
 from keras.models import load_model
 from keras.models import Model
-#from keras.layers import Dense, Conv2D, Input, Reshape, Flatten, Conv2DTranspose, MaxPooling2D, Lambda
 from keras.callbacks import ModelCheckpoint
 import matplotlib.pyplot as plt
 from util.ImageLoader import load_images_generator, resize_image
@@ -26,13 +25,13 @@ os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 
 # https://medium.com/analytics-vidhya/building-a-convolutional-autoencoder-using-keras-using-conv2dtranspose-ca403c8d144e
 def conv_autoencoder(io_shape, num_reductions=5, filter_reduction_on=2, num_filters_start=32, increasing=True):
-    inp = Input(io_shape)
+    inp = layers.Input(io_shape)
     e = inp
 
     num_filters = num_filters_start
     for i, _ in enumerate(range(num_reductions)):
-        e = Conv2D(num_filters, (3, 3), activation='relu', padding="same")(e)
-        e = MaxPooling2D((2, 2), strides=2, padding="same")(e)
+        e = layers.Conv2D(num_filters, (3, 3), activation='relu', padding="same")(e)
+        e = layers.MaxPooling2D((2, 2), strides=2, padding="same")(e)
 
         if i % filter_reduction_on == 0:
             if increasing:
@@ -40,7 +39,7 @@ def conv_autoencoder(io_shape, num_reductions=5, filter_reduction_on=2, num_filt
             else:
                 num_filters = int(num_filters / 2)
 
-    e = Conv2D(num_filters, (3, 3), activation='relu', padding="same")(e)
+    e = layers.Conv2D(num_filters, (3, 3), activation='relu', padding="same")(e)
 
     s = [int(i) for i in e.shape[1:]]
     # s[-1] = 1
@@ -48,14 +47,14 @@ def conv_autoencoder(io_shape, num_reductions=5, filter_reduction_on=2, num_filt
     dense_size = prod_s
     reshape_shape = s
 
-    l = Flatten()(e)
-    l = Dense(dense_size, activation='relu')(l)
+    l = layers.Flatten()(e)
+    l = layers.Dense(dense_size, activation='relu')(l)
 
     # DECODER
-    d = Reshape(reshape_shape)(l)
+    d = layers.Reshape(reshape_shape)(l)
 
     for i, _ in enumerate(range(num_reductions)):
-        d = Conv2DTranspose(num_filters, (3, 3), strides=2, activation='relu', padding='same')(d)
+        d = layers.Conv2DTranspose(num_filters, (3, 3), strides=2, activation='relu', padding='same')(d)
 
         if i % filter_reduction_on == 0:
             if increasing:
@@ -63,7 +62,7 @@ def conv_autoencoder(io_shape, num_reductions=5, filter_reduction_on=2, num_filt
             else:
                 num_filters = int(num_filters * 2)
 
-    decoded = Conv2D(3, (3, 3), activation='sigmoid', padding='same')(d)
+    decoded = layers.Conv2D(3, (3, 3), activation='sigmoid', padding='same')(d)
     ae = Model(inp, decoded)
     customAdam = keras.optimizers.Adam(lr=0.01, amsgrad=True)
     ae.compile(optimizer=customAdam, loss="mse")
