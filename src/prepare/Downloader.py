@@ -4,7 +4,7 @@ import os
 from pathlib import Path
 import logging as logger
 import pickle
-from util.Arguments import downloader_arguments
+from src.util.Arguments import downloader_arguments
 
 logger.getLogger().setLevel(logger.INFO)
 root_dir = Path.cwd()#.parent

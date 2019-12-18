@@ -5,15 +5,15 @@ from pathlib import Path
 
 import numpy as np
 
-from prepare.Downloader import get_observations_with_video, download_videos_if_not_exists, tie_observations_to_videos, \
+from src.prepare.Downloader import get_observations_with_video, download_videos_if_not_exists, tie_observations_to_videos, \
     save_observations_as_json, load_observations_from_json
 import cv2
 from dateutil import parser
-from sign_detection.image_generation.objectdetection import load_category_index, \
+from src.sign_detection.image_generation.objectdetection import load_category_index, \
     run_inference_for_single_image, load_frozen_model, run_inference_for_video
 
 from utils import visualization_utils as vis_util
-from Arguments import visualizer_arguments
+from src.util.Arguments import visualizer_arguments
 
 import math
 
