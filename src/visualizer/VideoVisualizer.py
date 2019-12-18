@@ -103,7 +103,7 @@ def _get_box(image, detection_box):
     return xmin, xmax, ymin, ymax
 
 
-def _crop_detected_objects_from_image(image, detection_box, data_for_timestep, prediction, score):
+def _crop_detected_objects_from_image(image, detection_box, data_for_timestep, prediction, score, save_images_dir='./detected_images'):
     box_data = _get_box(image, detection_box)
     (xmin, xmax, ymin, ymax) = box_data
 
@@ -122,18 +122,17 @@ def _crop_detected_objects_from_image(image, detection_box, data_for_timestep, p
     filename = f'{prediction["name"]}_{score}_'
     filename += '_'.join(str(i) for i in data_for_timestep)
     logger.info(f'Detected image {filename}, with mean {mean}')
-    cv2.imwrite(f'./detected_images/{filename}_.png', crop_img)
+    cv2.imwrite(f'{save_images_dir}/{filename}_.png', crop_img)
 
 
-def analyze_single_frame(frame, num_detections, detection_boxes, detection_classes, detection_scores, categories,
-                         data_for_timestep):
+def analyze_single_frame(frame, num_detections, detection_boxes, detection_classes, detection_scores, categories, data_for_timestep, save_images_dir):
     for i in range(int(num_detections)):
         box = detection_boxes[i]
         prediction = detection_classes[i]
         prediction_score = detection_scores[i]
 
         if args.extract and prediction_score >= args.extract_limit:
-            _crop_detected_objects_from_image(frame, box, data_for_timestep, categories[prediction], prediction_score)
+            _crop_detected_objects_from_image(frame, box, data_for_timestep, categories[prediction], prediction_score, save_images_dir=save_images_dir)
 
 
 def applyCV(data, graph, categories, data_for_timestep):
@@ -211,7 +210,8 @@ def analyze_raw_video_results(video_np, output_dict, categories, frame_index_sta
             zip(video_np, num_detections, detection_boxes, detection_classes, detection_scores)):
         data_for_timestep = [f'Frame-{frame_index_start + i}']
         analyze_single_frame(video_frame, num_detect, detection_box, detection_class, detection_score, categories,
-                             data_for_timestep)
+                             data_for_timestep,
+                             save_images_dir='./detected_images_raw')
 
 
 def analyze_video_results(video_np, output_dict, categories, observation, to_observe, frame_index_start, frame_total):
