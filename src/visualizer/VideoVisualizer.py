@@ -5,7 +5,8 @@ from pathlib import Path
 
 import numpy as np
 
-from src.prepare.Downloader import get_observations_with_video, download_videos_if_not_exists, tie_observations_to_videos, \
+from src.prepare.Downloader import get_observations_with_video, download_videos_if_not_exists, \
+    tie_observations_to_videos, \
     save_observations_as_json, load_observations_from_json
 import cv2
 from dateutil import parser
@@ -105,7 +106,7 @@ def _get_box(image, detection_box):
 def _crop_detected_objects_from_image(image, detection_box, data_for_timestep, prediction, score):
     box_data = _get_box(image, detection_box)
     (xmin, xmax, ymin, ymax) = box_data
-    
+
     xmin = math.floor(xmin)
     ymin = math.floor(ymin)
     xmax = math.ceil(xmax)
@@ -176,7 +177,11 @@ def applyCV(data, graph, categories, data_for_timestep):
 
 
 def video_to_np(observation):
-    cap = cv2.VideoCapture(str(observation['video_file']))
+    return video_path_to_np(str(observation['video_file']))
+
+
+def video_path_to_np(path):
+    cap = cv2.VideoCapture(str(path))
     frameCount = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
     frameWidth = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
     frameHeight = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
@@ -196,6 +201,19 @@ def video_to_np(observation):
     return buf
 
 
+def analyze_raw_video_results(video_np, output_dict, categories, frame_index_start):
+    num_detections = output_dict['num_detections']
+    detection_boxes = output_dict['detection_boxes']
+    detection_classes = output_dict['detection_classes']
+    detection_scores = output_dict['detection_scores']
+
+    for i, (video_frame, num_detect, detection_box, detection_class, detection_score) in enumerate(
+            zip(video_np, num_detections, detection_boxes, detection_classes, detection_scores)):
+        data_for_timestep = [f'Frame-{frame_index_start + i}']
+        analyze_single_frame(video_frame, num_detect, detection_box, detection_class, detection_score, categories,
+                             data_for_timestep)
+
+
 def analyze_video_results(video_np, output_dict, categories, observation, to_observe, frame_index_start, frame_total):
     num_detections = output_dict['num_detections']
     detection_boxes = output_dict['detection_boxes']
@@ -208,7 +226,7 @@ def analyze_video_results(video_np, output_dict, categories, observation, to_obs
 
     for i, (video_frame, num_detect, detection_box, detection_class, detection_score) in enumerate(
             zip(video_np, num_detections, detection_boxes, detection_classes, detection_scores)):
-        #logger.debug(f'Frame {i} / {len(video_np)}, num-detections: {num_detect}')
+        # logger.debug(f'Frame {i} / {len(video_np)}, num-detections: {num_detect}')
         data_for_timestep = data_for_frame_from_observation(observation, to_observe, frame_index_start + i, frame_total)
         analyze_single_frame(video_frame, num_detect, detection_box, detection_class, detection_score, categories,
                              data_for_timestep)
@@ -229,9 +247,44 @@ def data_for_frame_from_observation(observation, to_observe, frame_index, frame_
     return data_for_timestep
 
 
+def analyze_raw_videos(paths):
+    graph = load_frozen_model()
+    categories = load_category_index()
+
+    for video in paths:
+
+        videodata = video_path_to_np(video)
+        split_size = 500  # frames in a batch
+        num_chunks = len(videodata) // split_size
+        split_video = np.array_split(videodata, num_chunks)
+        import time
+
+        frame_start_index = 0
+        for i, data in enumerate(split_video):
+            start = time.time()
+            logger.info(f'Starting batch inference {i} / {len(split_video)}, number of frames = {len(data)}')
+            o_dict = run_inference_for_video(data, graph)
+            logger.info(f'Completed batch inference {i} / {len(split_video)}, time used = {time.time() - start}s')
+            logger.info(f'Starting batch analysis {i} / {len(split_video)}')
+            analyze_raw_video_results(
+                video_np=data,
+                output_dict=o_dict,
+                categories=categories,
+                frame_index_start=frame_start_index
+            )
+            logger.info(f'Completed batch analysis {i} / {len(split_video)}')
+            frame_start_index += len(data)
+
+
 if __name__ == '__main__':
     args = visualizer_arguments()
     print("Arguments", args)
+
+    if args.raw_videos_path:
+        data = os.listdir(args.raw_videos_path)
+
+        analyze_raw_videos(data)
+        exit(0)
 
     if not args.cached:
         observations = get_observations_with_video(limit=100)
@@ -240,9 +293,9 @@ if __name__ == '__main__':
         save_observations_as_json(observations)
     else:
         observations = load_observations_from_json()
-    
+
     if not args.cached:
-        exit(1)    
+        exit(1)
 
     graph = load_frozen_model()
     categories = load_category_index()
