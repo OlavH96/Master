@@ -123,6 +123,7 @@ def _crop_detected_objects_from_image(image, detection_box, data_for_timestep, p
     filename += '_'.join(str(i) for i in data_for_timestep)
     logger.info(f'Detected image {filename}, with mean {mean}')
     cv2.imwrite(f'{save_images_dir}/{filename}_.png', crop_img)
+    cv2.imwrite(f'{save_images_dir}/{filename}_fullframe_.png', image)
 
 
 def analyze_single_frame(frame, num_detections, detection_boxes, detection_classes, detection_scores, categories, data_for_timestep, save_images_dir):
@@ -256,6 +257,9 @@ def analyze_raw_videos(paths):
         videodata = video_path_to_np(video)
         split_size = 500  # frames in a batch
         num_chunks = len(videodata) // split_size
+
+        print(len(videodata))
+        print(num_chunks)
         split_video = np.array_split(videodata, num_chunks)
         import time
 
@@ -282,7 +286,8 @@ if __name__ == '__main__':
 
     if args.raw_videos_path:
         data = os.listdir(args.raw_videos_path)
-
+        data = [os.path.join(args.raw_videos_path, d) for d in data]
+        print("Raw videos", data)
         analyze_raw_videos(data)
         exit(0)
 
