@@ -85,6 +85,16 @@ def anomaly_arguments():
         help='Type of anomaly model architecture'
     )
 
+
+    parser.add_argument(
+        '--color',
+        dest='color',
+        choices=['RGB', 'HSV'],
+        type=str,
+        default='RGB',
+        help='Color mode for loaded images.'
+    )
+
     return parser.parse_args()
 
 
