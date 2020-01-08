@@ -39,7 +39,7 @@ def centered_image_generator(path, max_x, max_y):
             yield (i, o)
 
 
-def train_on_images(epochs, max_x, max_y, path, model_type, model_name):
+def train_on_images(epochs, max_x, max_y, path, model_type, model_name, arg_steps):
     sess = tf.Session()
     keras.backend.set_session(sess)
 
@@ -61,6 +61,9 @@ def train_on_images(epochs, max_x, max_y, path, model_type, model_name):
         print(log_var, mu)
 
     steps = len(glob.glob(path))
+    if arg_steps != 0:
+        steps = arg_steps
+    
 
     # define the checkpoint
     filepath = model_name
@@ -70,15 +73,17 @@ def train_on_images(epochs, max_x, max_y, path, model_type, model_name):
     log.info('Fitting model...')
     history = model.fit_generator(centered_image_generator(path, max_x, max_y), epochs=epochs, steps_per_epoch=steps,
                                   callbacks=callbacks_list)
+    model.save(model_name)
     loss = history.history['loss']
-
-    plt.plot(loss)
-    plt.ylabel("Loss")
-    plt.xlabel("Epoch")
-    plt.savefig(f'training_loss_{model_name}.png')
+    try:
+        plt.plot(loss)
+        plt.ylabel("Loss")
+        plt.xlabel("Epoch")
+        plt.savefig(f'training_loss_{model_name}.png')
+    except:
+        log.info("Failed to create loss graph")
 
     log.info('Finished fitting model')
-    model.save(model_name)
     return model
 
 
@@ -119,14 +124,14 @@ def load_model_and_predict(model_path, num_predictions, path, max_x, max_y, mode
             ii = Image.fromarray((ii * 255).astype(np.uint8), 'HSV')
             ii = ii.convert("RGB")
             ii = np.array(ii)
-            plt.imsave(f'predictions/orig{index}.png', ii)
+            plt.imsave(f'predictions/orig_{model_path}_{index}.png', ii)
 
-        print(evaluate)
+        print(index, evaluate)
         for p in pred:
             p = Image.fromarray((p * 255).astype(np.uint8), 'HSV')
             p = p.convert('RGB')
             p = np.array(p)
-            plt.imsave(f'predictions/pred{index}_{str(evaluate)}.png', p, vmin=0, vmax=1)
+            plt.imsave(f'predictions/pred_{model_path}_{index}_{str(evaluate)}.png', p, vmin=0, vmax=1)
 
         index += 1
         if index == num_predictions:
@@ -171,7 +176,8 @@ if __name__ == '__main__':
             max_x=args.max_x,
             max_y=args.max_y,
             model_type=args.model_type,
-            model_name=args.model
+            model_name=args.model,
+            arg_steps=args.steps
         )
     if args.do_predict:
         load_model_and_predict(

@@ -96,23 +96,27 @@ def autoencoder(image_shape):
 
 
 def vae_loss(image_shape, log_var, mu):
-    print('\n\n\n\n\n', type(log_var), type(mu))
 
     def custom_vae_loss(y_true, y_pred):
-        print("VAE Loss", y_true.shape, y_pred.shape, log_var, mu)
-        xent_loss = image_shape[0] * image_shape[1] * objectives.binary_crossentropy(K.flatten(y_true),
-                                                                                     K.flatten(y_pred))
-        kl_loss = - 0.5 * K.sum(1 + log_var - K.square(mu) - K.exp(log_var), axis=-1)
-        vae_loss = K.mean(xent_loss + kl_loss)
-        return vae_loss
+        # print("VAE Loss", y_true.shape, y_pred.shape, log_var, mu)
+        # xent_loss = y_true.shape[1] * objectives.binary_crossentropy(K.flatten(y_true), K.flatten(y_pred))
+        # #xent_loss = objectives.binary_crossentropy(K.flatten(y_true), K.flatten(y_pred))
+        # kl_loss = 0.5 * K.sum(K.square(mu) + K.exp(log_var) - log_var - 1, axis = -1) 
+        # #kl_loss = - 0.5 * K.sum(1 + log_var - K.square(mu) - K.exp(log_var), axis=-1)
+        # vae_loss = xent_loss + kl_loss
+        # return vae_loss
+            
+        recon = K.sum(K.binary_crossentropy(y_pred, y_true), axis=1)
+        kl = 0.5 * K.sum(K.exp(log_var) + K.square(mu) - 1. - log_var, axis=1)
+
+        return recon + kl
 
     return custom_vae_loss
 
 
 def get_dummy_loss(image_shape):
     def dummy_loss(y_true, y_pred):
-        xent_loss = image_shape[0] * image_shape[1] * objectives.binary_crossentropy(K.flatten(y_true),
-                                                                                     K.flatten(y_pred))
+        xent_loss = objectives.binary_crossentropy(K.flatten(y_true), K.flatten(y_pred))
         return K.mean(xent_loss)
 
     return dummy_loss
@@ -122,8 +126,9 @@ def get_dummy_loss(image_shape):
 def vae_autoencoder(image_shape):
     # network parameters
     image_shape_flat = reduce(lambda x, y: x * y, image_shape)
-    batch_size, n_epoch = 1, 10
-    n_hidden, z_dim = 256, 2
+    batch_size = 1
+    n_hidden = 512
+    z_dim = 2
     print(image_shape)
     # encoder
     inputs = layers.Input(shape=image_shape)

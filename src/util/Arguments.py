@@ -69,6 +69,14 @@ def anomaly_arguments():
     )
 
     parser.add_argument(
+        '--steps',
+        dest='steps',
+        type=int,
+        default=0,
+        help='Steps per epoch, default is length of --path dir'
+    )
+
+    parser.add_argument(
         '--architecture',
         dest='model_type',
         choices=['conv', 'fully-connected', 'vae'],

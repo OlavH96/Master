@@ -123,7 +123,7 @@ def _crop_detected_objects_from_image(image, detection_box, data_for_timestep, p
     filename += '_'.join(str(i) for i in data_for_timestep)
     logger.info(f'Detected image {filename}, with mean {mean}')
     cv2.imwrite(f'{save_images_dir}/{filename}_.png', crop_img)
-    cv2.imwrite(f'{save_images_dir}/{filename}_fullframe_.png', image)
+    #cv2.imwrite(f'{save_images_dir}/{filename}_fullframe_.png', image)
 
 
 def analyze_single_frame(frame, num_detections, detection_boxes, detection_classes, detection_scores, categories, data_for_timestep, save_images_dir):
