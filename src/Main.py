@@ -24,8 +24,8 @@ from src.train.Models import autoencoder, conv_autoencoder, vae_autoencoder, vae
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 
 
-def image_generator(path, max_x, max_y):
-    for i in load_images_generator(path, color_mode='HSV'):
+def image_generator(path, max_x, max_y, color_mode="RGB"):
+    for i in load_images_generator(path, color_mode=color_mode):
         i = resize_image(i, max_x, max_y)
         i = np.array(i)
         i = np.expand_dims(i, axis=0)
@@ -33,13 +33,13 @@ def image_generator(path, max_x, max_y):
         yield (i, i)
 
 
-def centered_image_generator(path, max_x, max_y):
+def centered_image_generator(path, max_x, max_y, color_mode="RGB"):
     while True:
-        for i, o in image_generator(path, max_x, max_y):
+        for i, o in image_generator(path, max_x, max_y, color_mode=color_mode):
             yield (i, o)
 
 
-def train_on_images(epochs, max_x, max_y, path, model_type, model_name):
+def train_on_images(epochs, max_x, max_y, path, model_type, model_name, arg_steps, color_mode="RGB"):
     sess = tf.Session()
     keras.backend.set_session(sess)
 
@@ -61,6 +61,9 @@ def train_on_images(epochs, max_x, max_y, path, model_type, model_name):
         print(log_var, mu)
 
     steps = len(glob.glob(path))
+    if arg_steps != 0:
+        steps = arg_steps
+    
 
     # define the checkpoint
     filepath = model_name
@@ -68,21 +71,23 @@ def train_on_images(epochs, max_x, max_y, path, model_type, model_name):
     callbacks_list = [checkpoint]
 
     log.info('Fitting model...')
-    history = model.fit_generator(centered_image_generator(path, max_x, max_y), epochs=epochs, steps_per_epoch=steps,
+    history = model.fit_generator(centered_image_generator(path, max_x, max_y, color_mode=color_mode), epochs=epochs, steps_per_epoch=steps,
                                   callbacks=callbacks_list)
+    model.save(model_name)
     loss = history.history['loss']
-
-    plt.plot(loss)
-    plt.ylabel("Loss")
-    plt.xlabel("Epoch")
-    plt.savefig(f'training_loss_{model_name}.png')
+    try:
+        plt.plot(loss)
+        plt.ylabel("Loss")
+        plt.xlabel("Epoch")
+        plt.savefig(f'training_loss_{model_name}.png')
+    except:
+        log.info("Failed to create loss graph")
 
     log.info('Finished fitting model')
-    model.save(model_name)
     return model
 
 
-def load_model_and_predict(model_path, num_predictions, path, max_x, max_y, model_type, model=None):
+def load_model_and_predict(model_path, num_predictions, path, max_x, max_y, model_type, model=None, color_mode="RGB"):
     # vae_loss(image_shape=(max_x, max_y, 3), log_var=0.5, mu=0.5) 
     im_shape = (max_x, max_y, 3)
     if model_type == 'vae' and not model:
@@ -108,7 +113,7 @@ def load_model_and_predict(model_path, num_predictions, path, max_x, max_y, mode
 
     # create_manifold(model, max_x)
     # exit(1)
-    images = list(image_generator(path, max_x, max_y))
+    images = list(image_generator(path, max_x, max_y, color_mode=color_mode))
     random.shuffle(images)
     index = 0
     print(f'Loaded {len(images)} images')
@@ -119,14 +124,14 @@ def load_model_and_predict(model_path, num_predictions, path, max_x, max_y, mode
             ii = Image.fromarray((ii * 255).astype(np.uint8), 'HSV')
             ii = ii.convert("RGB")
             ii = np.array(ii)
-            plt.imsave(f'predictions/orig{index}.png', ii)
+            plt.imsave(f'predictions/orig_{model_path}_{index}.png', ii)
 
-        print(evaluate)
+        print(index, evaluate)
         for p in pred:
             p = Image.fromarray((p * 255).astype(np.uint8), 'HSV')
             p = p.convert('RGB')
             p = np.array(p)
-            plt.imsave(f'predictions/pred{index}_{str(evaluate)}.png', p, vmin=0, vmax=1)
+            plt.imsave(f'predictions/pred_{model_path}_{index}_{str(evaluate)}.png', p, vmin=0, vmax=1)
 
         index += 1
         if index == num_predictions:
@@ -171,7 +176,9 @@ if __name__ == '__main__':
             max_x=args.max_x,
             max_y=args.max_y,
             model_type=args.model_type,
-            model_name=args.model
+            model_name=args.model,
+            arg_steps=args.steps,
+            color_mode=args.color
         )
     if args.do_predict:
         load_model_and_predict(
@@ -181,5 +188,6 @@ if __name__ == '__main__':
             max_y=args.max_y,
             path=args.path,
             model_type=args.model_type,
-            model=model
+            model=model,
+            color_mode=args.color
         )

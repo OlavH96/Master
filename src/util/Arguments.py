@@ -69,12 +69,30 @@ def anomaly_arguments():
     )
 
     parser.add_argument(
+        '--steps',
+        dest='steps',
+        type=int,
+        default=0,
+        help='Steps per epoch, default is length of --path dir'
+    )
+
+    parser.add_argument(
         '--architecture',
         dest='model_type',
-        choices=['conv','fully-connected','vae'],
+        choices=['conv', 'fully-connected', 'vae'],
         type=str,
         default='fully-connected',
         help='Type of anomaly model architecture'
+    )
+
+
+    parser.add_argument(
+        '--color',
+        dest='color',
+        choices=['RGB', 'HSV'],
+        type=str,
+        default='RGB',
+        help='Color mode for loaded images.'
     )
 
     return parser.parse_args()
@@ -128,6 +146,14 @@ def visualizer_arguments():
         type=int,
         default=0,
         help='Number of videos to skip'
+    )
+
+    parser.add_argument(
+        '--raw-videos',
+        dest='raw_videos_path',
+        type=str,
+        default='',
+        help='Analyze raw videos with no metadata'
     )
 
     return parser.parse_args()
