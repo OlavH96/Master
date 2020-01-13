@@ -6,6 +6,7 @@ import numpy as np
 from keras import backend as K
 from keras import objectives
 from functools import reduce
+from keras.losses import mse, binary_crossentropy
 
 
 # https://medium.com/analytics-vidhya/building-a-convolutional-autoencoder-using-keras-using-conv2dtranspose-ca403c8d144e
@@ -94,7 +95,7 @@ def autoencoder(image_shape):
     model.summary()
     return model
 
-
+# https://github.com/keras-team/keras/blob/master/examples/variational_autoencoder.py
 def vae_loss(image_shape, log_var, mu):
 
     def custom_vae_loss(y_true, y_pred):
@@ -106,10 +107,18 @@ def vae_loss(image_shape, log_var, mu):
         # vae_loss = xent_loss + kl_loss
         # return vae_loss
             
-        recon = K.sum(K.binary_crossentropy(y_pred, y_true), axis=1)
-        kl = 0.5 * K.sum(K.exp(log_var) + K.square(mu) - 1. - log_var, axis=1)
+        #recon = K.sum(K.binary_crossentropy(y_pred, y_true), axis=1)
+        #kl = 0.5 * K.sum(K.exp(log_var) + K.square(mu) - 1. - log_var, axis=1)
+        #return recon + kl
 
-        return recon + kl
+        # https://github.com/keras-team/keras/blob/master/examples/variational_autoencoder.py
+        reconstruction_loss = binary_crossentropy(y_true, y_pred)
+        reconstruction_loss *= (image_shape[0] * image_shape[1])
+        kl_loss = 1 + log_var - K.square(mu) - K.exp(log_var)
+        kl_loss = K.sum(kl_loss, axis=-1)
+        kl_loss *= -0.5
+        vae_loss = K.mean(reconstruction_loss + kl_loss)
+        return vae_loss
 
     return custom_vae_loss
 

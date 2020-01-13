@@ -101,7 +101,7 @@ def load_model_and_predict(model_path, num_predictions, path, max_x, max_y, mode
         # mu = model.get_layer('dense_3')(o)
         # log_var = model.get_layer('dense_4')(o)
 
-        model = load_model(model_path, custom_objects={'custom_vae_loss': get_dummy_loss((max_x, max_y, 3))})
+        #model = load_model(model_path, custom_objects={'custom_vae_loss': get_dummy_loss((max_x, max_y, 3))})
         # model = load_model(model_path, custom_objects={'custom_vae_loss': vae_loss((max_x, max_y, 3), mu, log_var)})
 
     if model_type != 'vae' and not model:
@@ -121,16 +121,18 @@ def load_model_and_predict(model_path, num_predictions, path, max_x, max_y, mode
         pred = model.predict(i)
         evaluate = model.evaluate(i, target)
         for ii in i:
-            ii = Image.fromarray((ii * 255).astype(np.uint8), 'HSV')
-            ii = ii.convert("RGB")
-            ii = np.array(ii)
+            if color_mode == 'HSV':
+                ii = Image.fromarray((ii * 255).astype(np.uint8), 'HSV')
+                ii = ii.convert("RGB")
+                ii = np.array(ii)
             plt.imsave(f'predictions/orig_{model_path}_{index}.png', ii)
 
         print(index, evaluate)
         for p in pred:
-            p = Image.fromarray((p * 255).astype(np.uint8), 'HSV')
-            p = p.convert('RGB')
-            p = np.array(p)
+            if color_mode == 'HSV':
+                p = Image.fromarray((p * 255).astype(np.uint8), 'HSV')
+                p = p.convert('RGB')
+                p = np.array(p)
             plt.imsave(f'predictions/pred_{model_path}_{index}_{str(evaluate)}.png', p, vmin=0, vmax=1)
 
         index += 1
