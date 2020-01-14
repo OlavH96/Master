@@ -4,6 +4,7 @@ import numpy as np
 import src.util.ImageLoader as ImageLoader
 import matplotlib.pyplot as plt
 from pathlib import Path
+from skimage.transform import resize
 
 
 def order_sorter():
@@ -78,7 +79,8 @@ def sort_by_score(originals, orig_names, predictions, pred_names, highest_first=
     sorted_originals, sorted_orig_names = zip(*aligned)
 
     if highest_first:
-        return list(reversed(sorted_originals)), list(reversed(sorted_orig_names)), list(reversed(sorted_predictions)), list(reversed(sorted_pred_names))
+        return list(reversed(sorted_originals)), list(reversed(sorted_orig_names)), list(
+            reversed(sorted_predictions)), list(reversed(sorted_pred_names))
 
     return sorted_originals, sorted_orig_names, sorted_predictions, sorted_pred_names
 
@@ -98,8 +100,46 @@ def plot_images(originals, predictions, orig_names, pred_names, n=100, save_by_o
         score = "{0:.5f}".format(p_score)
         ax2.title.set_text(f'Prediction, score: {score}')
         plt.savefig(f'./src/analysis/images/Comparison_n{i if save_by_order else p_index}_{o_index}_{p_index}.png')
-        if i == n-1:
+        if i == n - 1:
             return
+
+
+def create_score_plot(originals, predictions, orig_names, pred_names, n=100, save_by_order=True):
+    fig, ax = plt.subplots()
+    scores = [extract_score(p) for p in pred_names]
+    max_score = max(scores)
+    ymax = ax.bbox.ymax
+    ymin = ax.bbox.ymin
+    ydiff = ymax - ymin
+    xmax = ax.bbox.xmax
+    xmin = ax.bbox.xmin
+    xdiff = xmax - xmin
+
+    ax.plot(scores)
+
+    for i, (o, p, o_name, p_name) in enumerate(zip(originals, predictions, orig_names, pred_names)):
+        p_score = extract_score(p_name)
+        score_ratio = p_score / max_score
+        index_ratio = (i + 1) / len(originals)
+
+        im = np.array(p).astype(np.float) / 255
+        o_im = np.array(o).astype(np.float) / 255
+        im = resize(im, (16, 16))
+        o_im = resize(o_im, (16, 16))
+
+        w = im.shape[0]
+
+        xpos = index_ratio * xdiff
+        x_offset = xpos + xmin
+        ypos = score_ratio * ydiff
+        y_offset = ypos + ymin
+
+        fig.figimage(im, x_offset, y_offset)
+        if p_score > np.average(scores) + np.std(scores):
+            fig.figimage(o_im, x_offset + w, y_offset)
+
+    plt.show()
+
 
 if __name__ == '__main__':
     path = Path.cwd()
@@ -108,6 +148,8 @@ if __name__ == '__main__':
     originals, orig_names, predictions, pred_names = load_and_preprocess(path)
     # plot_images(originals, predictions, orig_names, pred_names, n=len(originals))
 
-    originals, orig_names, predictions, pred_names = sort_by_score(originals, orig_names, predictions, pred_names, highest_first=True)
+    originals, orig_names, predictions, pred_names = sort_by_score(originals, orig_names, predictions, pred_names,
+                                                                   highest_first=True)
 
-    plot_images(originals, predictions, orig_names, pred_names, n=len(originals))
+    # plot_images(originals, predictions, orig_names, pred_names, n=len(originals))
+    create_score_plot(originals, predictions, orig_names, pred_names)
