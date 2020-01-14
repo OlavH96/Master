@@ -83,28 +83,31 @@ def sort_by_score(originals, orig_names, predictions, pred_names, highest_first=
     return sorted_originals, sorted_orig_names, sorted_predictions, sorted_pred_names
 
 
-def plot_images(originals, predictions, orig_names, pred_names, n=100):
+def plot_images(originals, predictions, orig_names, pred_names, n=100, save_by_order=True):
     for i, (o, p, o_name, p_name) in enumerate(zip(originals, predictions, orig_names, pred_names)):
         p_score = extract_score(p_name)
         p_index = order(p_name)
         o_index = order(o_name)
-        print(p_score)
-        print(i, o_name, p_name)
-        plt.imshow(np.array(o))
-        plt.title(f'Original #{o_index}')
-        plt.show()
-        plt.imshow(np.array(p))
-        plt.title(f'Prediction #{p_index}, score: {p_score}')
-        plt.show()
-        if i == n:
+        assert p_index == o_index
+        fig, (ax1, ax2) = plt.subplots(1, 2)
+        fig.suptitle(f'Image #{o_index}')
+
+        ax1.imshow(np.array(o))
+        ax1.title.set_text(f'Original')
+        ax2.imshow(np.array(p))
+        score = "{0:.5f}".format(p_score)
+        ax2.title.set_text(f'Prediction, score: {score}')
+        plt.savefig(f'./src/analysis/images/Comparison_n{i if save_by_order else p_index}_{o_index}_{p_index}.png')
+        if i == n-1:
             return
 
 if __name__ == '__main__':
     path = Path.cwd()
-    path = path.parent.parent
     path = path / 'predictions'
 
     originals, orig_names, predictions, pred_names = load_and_preprocess(path)
-    originals, orig_names, predictions, pred_names = sort_by_score(originals, orig_names, predictions, pred_names)
+    # plot_images(originals, predictions, orig_names, pred_names, n=len(originals))
+
+    originals, orig_names, predictions, pred_names = sort_by_score(originals, orig_names, predictions, pred_names, highest_first=True)
 
     plot_images(originals, predictions, orig_names, pred_names, n=len(originals))
