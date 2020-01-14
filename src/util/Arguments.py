@@ -156,6 +156,14 @@ def visualizer_arguments():
         help='Analyze raw videos with no metadata'
     )
 
+    parser.add_argument(
+        '--save-images-dir',
+        dest='save_images_dir',
+        type=str,
+        default='./detected_images',
+        help='Which directory to save detected images to.'
+    )
+
     return parser.parse_args()
 
 

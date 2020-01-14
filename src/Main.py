@@ -127,7 +127,10 @@ def load_model_and_predict(model_path, num_predictions, path, max_x, max_y, mode
                 ii = np.array(ii)
             plt.imsave(f'predictions/orig_{model_path}_{index}.png', ii)
 
+        if type(evaluate) is list:
+            evaluate = evaluate[0]
         print(index, evaluate)
+
         for p in pred:
             if color_mode == 'HSV':
                 p = Image.fromarray((p * 255).astype(np.uint8), 'HSV')
