@@ -116,7 +116,7 @@ def _crop_detected_objects_from_image(image, detection_box, data_for_timestep, p
     mean = np.mean(crop_img / 255)
     if mean < 0.1:
         logger.info(f'Discarded image for being too black: score: {score}, mean: {mean}')
-        cv2.imwrite(f'./detected_images/ignored_{mean}_.png', crop_img)
+        cv2.imwrite(f'{save_images_dir}/ignored_{mean}_.png', crop_img)
         return  # Black image === its a cencored car
 
     filename = f'{prediction["name"]}_{score}_'
@@ -215,7 +215,7 @@ def analyze_raw_video_results(video_np, output_dict, categories, frame_index_sta
                              save_images_dir='./detected_images_raw')
 
 
-def analyze_video_results(video_np, output_dict, categories, observation, to_observe, frame_index_start, frame_total):
+def analyze_video_results(video_np, output_dict, categories, observation, to_observe, frame_index_start, frame_total, save_images_dir='./detected_images'):
     num_detections = output_dict['num_detections']
     detection_boxes = output_dict['detection_boxes']
     detection_classes = output_dict['detection_classes']
@@ -230,7 +230,7 @@ def analyze_video_results(video_np, output_dict, categories, observation, to_obs
         # logger.debug(f'Frame {i} / {len(video_np)}, num-detections: {num_detect}')
         data_for_timestep = data_for_frame_from_observation(observation, to_observe, frame_index_start + i, frame_total)
         analyze_single_frame(video_frame, num_detect, detection_box, detection_class, detection_score, categories,
-                             data_for_timestep)
+                             data_for_timestep, save_images_dir=save_images_dir)
 
 
 def data_for_frame_from_observation(observation, to_observe, frame_index, frame_total):
@@ -334,7 +334,7 @@ if __name__ == '__main__':
             o_dict = run_inference_for_video(data, graph)
             logger.info(f'Completed batch inference {i} / {len(split_video)}, time used = {time.time() - start}s')
             logger.info(f'Starting batch analysis {i} / {len(split_video)}')
-            analyze_video_results(data, o_dict, categories, o, to_observe, frame_start_index, number_of_frames)
+            analyze_video_results(data, o_dict, categories, o, to_observe, frame_start_index, number_of_frames, save_images_dir=args.save_images_dir)
             logger.info(f'Completed batch analysis {i} / {len(split_video)}')
             frame_start_index += len(data)
 
