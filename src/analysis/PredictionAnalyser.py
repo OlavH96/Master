@@ -1,6 +1,8 @@
 import numpy as np
 import os
 
+from matplotlib.offsetbox import AnnotationBbox, OffsetImage
+
 import src.util.ImageLoader as ImageLoader
 import matplotlib.pyplot as plt
 from pathlib import Path
@@ -72,7 +74,8 @@ def load_and_preprocess(path, autoremove_missing_files=False):
     missing_predictions = set(pred_orders) - set(orig_orders)
 
     if autoremove_missing_files and (missing_originals or missing_predictions):
-        print(f"Removing missing files. Originals removed: {sorted(list(missing_originals))}, Predictions removed: {sorted(list(missing_predictions))}")
+        print(
+            f"Removing missing files. Originals removed: {sorted(list(missing_originals))}, Predictions removed: {sorted(list(missing_predictions))}")
         for f in orig_names_with_path:
             orig = remove_path(f)
             if order(orig) in missing_originals:
@@ -113,8 +116,8 @@ def sort_by_score(originals, orig_names, predictions, pred_names, highest_first=
     return sorted_originals, sorted_orig_names, sorted_predictions, sorted_pred_names
 
 
-def plot_images(originals, predictions, orig_names, pred_names, savedir, n=100, save_by_order=True, show_plot=False, save_fig=True):
-
+def plot_images(originals, predictions, orig_names, pred_names, savedir, n=100, save_by_order=True, show_plot=False,
+                save_fig=True):
     model_name = extract_model_name(orig_names[0])
     save_path = Path(savedir) / model_name
     if not save_path.exists():
@@ -148,7 +151,10 @@ def plot_images(originals, predictions, orig_names, pred_names, savedir, n=100, 
 
 def create_score_plot(originals, predictions, orig_names, pred_names):
     fig, ax = plt.subplots()
+    plt.xlabel("Image Number")
+    plt.ylabel("Score")
     scores = [extract_score(p) for p in pred_names]
+    ax.plot(scores)
     max_score = max(scores)
     ymax = ax.bbox.ymax
     ymin = ax.bbox.ymin
@@ -157,7 +163,12 @@ def create_score_plot(originals, predictions, orig_names, pred_names):
     xmin = ax.bbox.xmin
     xdiff = xmax - xmin
 
-    ax.plot(scores)
+    print("ymax ", ymax)
+    print("ymin ", ymin)
+    print("ydiff", ydiff)
+    print("xmax ", xmax)
+    print("xmin ", xmin)
+    print("xdiff", xdiff)
 
     for i, (o, p, o_name, p_name) in enumerate(zip(originals, predictions, orig_names, pred_names)):
         p_score = extract_score(p_name)
@@ -175,10 +186,26 @@ def create_score_plot(originals, predictions, orig_names, pred_names):
         x_offset = xpos + xmin
         ypos = score_ratio * ydiff
         y_offset = ypos + ymin
+        # plt.text(
+        #    index_ratio, score_ratio,"test",
+        #    transform=ax.transAxes
+        # )
+        # fig.figimage(im, x_offset, y_offset)
+        # https://stackoverflow.com/questions/22566284/matplotlib-how-to-plot-images-instead-of-points/53851017
+        if i % 2 == 0:
+            ab = AnnotationBbox(OffsetImage(im), (i, max_score), frameon=False)
+            ax.add_artist(ab)
+            plt.vlines(x=i, ymin=p_score, ymax=max_score)
+        else:
+            ab = AnnotationBbox(OffsetImage(im), (i, 0), frameon=False)
+            ax.add_artist(ab)
+            plt.vlines(x=i, ymin=0, ymax=p_score)
 
-        fig.figimage(im, x_offset, y_offset)
-        if p_score > np.average(scores) + np.std(scores):
-            fig.figimage(o_im, x_offset + w, y_offset)
+        # fig.figimage(im, x_offset, y_offset)
+        # if p_score > np.average(scores) + np.std(scores):
+        #    ab = AnnotationBbox(OffsetImage(o_im), (i, max_score), frameon=False)
+        #   ax.add_artist(ab)
+        # fig.figimage(o_im, x_offset + w, y_offset)
 
     plt.show()
 
@@ -188,11 +215,18 @@ if __name__ == '__main__':
     predictions_path = path / 'predictions' / 'model_rgb_64_fully-connected_10_2020-01-13_36'
     save_path = str(path / 'src' / 'analysis' / 'images')
 
-    originals, orig_names, predictions, pred_names = load_and_preprocess(predictions_path, autoremove_missing_files=True)
+    originals, orig_names, predictions, pred_names = load_and_preprocess(predictions_path,
+                                                                         autoremove_missing_files=True)
+
     # plot_images(originals, predictions, orig_names, pred_names, n=len(originals))
 
     originals, orig_names, predictions, pred_names = sort_by_score(originals, orig_names, predictions, pred_names,
                                                                    highest_first=True)
+    num_scored = len(orig_names)
+    originals = originals[:num_scored]
+    orig_names = orig_names[:num_scored]
+    predictions = predictions[:num_scored]
+    pred_names = pred_names[:num_scored]
 
-    plot_images(originals, predictions, orig_names, pred_names, savedir=save_path, n=100)
+    # plot_images(originals, predictions, orig_names, pred_names, savedir=save_path, n=100)
     create_score_plot(originals, predictions, orig_names, pred_names)
