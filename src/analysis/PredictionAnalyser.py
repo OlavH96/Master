@@ -150,62 +150,34 @@ def plot_images(originals, predictions, orig_names, pred_names, savedir, n=100, 
 
 
 def create_score_plot(originals, predictions, orig_names, pred_names):
-    fig, ax = plt.subplots()
+    fig, ax = plt.subplots(figsize=(19.2, 10.8))
     plt.xlabel("Image Number")
     plt.ylabel("Score")
     scores = [extract_score(p) for p in pred_names]
-    ax.plot(scores)
+    ax.plot(scores, linewidth=5)
     max_score = max(scores)
-    ymax = ax.bbox.ymax
-    ymin = ax.bbox.ymin
-    ydiff = ymax - ymin
-    xmax = ax.bbox.xmax
-    xmin = ax.bbox.xmin
-    xdiff = xmax - xmin
-
-    print("ymax ", ymax)
-    print("ymin ", ymin)
-    print("ydiff", ydiff)
-    print("xmax ", xmax)
-    print("xmin ", xmin)
-    print("xdiff", xdiff)
 
     for i, (o, p, o_name, p_name) in enumerate(zip(originals, predictions, orig_names, pred_names)):
         p_score = extract_score(p_name)
-        score_ratio = p_score / max_score
-        index_ratio = (i + 1) / len(originals)
 
         im = np.array(p).astype(np.float) / 255
         o_im = np.array(o).astype(np.float) / 255
-        im = resize(im, (16, 16))
-        o_im = resize(o_im, (16, 16))
+        new_size = (32, 32)
+        im = resize(im, new_size)
+        o_im = resize(o_im, new_size)
 
-        w = im.shape[0]
-
-        xpos = index_ratio * xdiff
-        x_offset = xpos + xmin
-        ypos = score_ratio * ydiff
-        y_offset = ypos + ymin
-        # plt.text(
-        #    index_ratio, score_ratio,"test",
-        #    transform=ax.transAxes
-        # )
-        # fig.figimage(im, x_offset, y_offset)
         # https://stackoverflow.com/questions/22566284/matplotlib-how-to-plot-images-instead-of-points/53851017
-        if i % 2 == 0:
-            ab = AnnotationBbox(OffsetImage(im), (i, max_score), frameon=False)
+        if i % 2 != 0:
+            ab = AnnotationBbox(OffsetImage(o_im), (i, max_score), frameon=False)
             ax.add_artist(ab)
             plt.vlines(x=i, ymin=p_score, ymax=max_score)
         else:
-            ab = AnnotationBbox(OffsetImage(im), (i, 0), frameon=False)
+            ab = AnnotationBbox(OffsetImage(o_im), (i, 0), frameon=False)
             ax.add_artist(ab)
             plt.vlines(x=i, ymin=0, ymax=p_score)
 
-        # fig.figimage(im, x_offset, y_offset)
-        # if p_score > np.average(scores) + np.std(scores):
-        #    ab = AnnotationBbox(OffsetImage(o_im), (i, max_score), frameon=False)
-        #   ax.add_artist(ab)
-        # fig.figimage(o_im, x_offset + w, y_offset)
+        ab = AnnotationBbox(OffsetImage(im), (i, p_score), frameon=False)
+        ax.add_artist(ab)
 
     plt.show()
 
@@ -222,7 +194,7 @@ if __name__ == '__main__':
 
     originals, orig_names, predictions, pred_names = sort_by_score(originals, orig_names, predictions, pred_names,
                                                                    highest_first=True)
-    num_scored = len(orig_names)
+    num_scored = len(orig_names) // 2
     originals = originals[:num_scored]
     orig_names = orig_names[:num_scored]
     predictions = predictions[:num_scored]
