@@ -53,15 +53,15 @@ def align_sort(to_align, align_with, align_function):
     return aligned
 
 
-def load_and_preprocess(path):
+def load_and_preprocess(path, autoremove_missing_files=False):
     origPath = str(path / 'orig*')
     predPath = str(path / 'pred*')
 
-    originals, orig_names = ImageLoader.load_images(origPath)
-    predictions, pred_names = ImageLoader.load_images(predPath)
+    originals, orig_names_with_path = ImageLoader.load_images(origPath)
+    predictions, pred_names_with_path = ImageLoader.load_images(predPath)
 
-    orig_names = [remove_path(n) for n in orig_names]
-    pred_names = [remove_path(n) for n in pred_names]
+    orig_names = [remove_path(n) for n in orig_names_with_path]
+    pred_names = [remove_path(n) for n in pred_names_with_path]
 
     originals, orig_names = sort_by_order(originals, orig_names)
     predictions, pred_names = sort_by_order(predictions, pred_names)
@@ -71,8 +71,20 @@ def load_and_preprocess(path):
     missing_originals = set(orig_orders) - set(pred_orders)
     missing_predictions = set(pred_orders) - set(orig_orders)
 
-    assert not missing_originals and not missing_predictions, f"Missing predictions for originals: {missing_originals if missing_originals else None}. Missing originals for predictions: {missing_predictions if missing_predictions else None} "
-
+    if autoremove_missing_files and (missing_originals or missing_predictions):
+        print(f"Removing missing files. Originals removed: {sorted(list(missing_originals))}, Predictions removed: {sorted(list(missing_predictions))}")
+        for f in orig_names_with_path:
+            orig = remove_path(f)
+            if order(orig) in missing_originals:
+                os.remove(f)
+        for f in pred_names_with_path:
+            orig = remove_path(f)
+            if order(orig) in missing_predictions:
+                os.remove(f)
+        return load_and_preprocess(path, autoremove_missing_files=False)
+    else:
+        assert not missing_originals and not missing_predictions, f"Missing predictions for originals: {sorted(list(missing_originals)) if missing_originals else None}. Missing originals for predictions: {sorted(list(missing_predictions)) if missing_predictions else None} "
+    print("Load and preprocessing completed")
     return originals, orig_names, predictions, pred_names
 
 
@@ -176,7 +188,7 @@ if __name__ == '__main__':
     predictions_path = path / 'predictions' / 'model_rgb_64_fully-connected_10_2020-01-13_36'
     save_path = str(path / 'src' / 'analysis' / 'images')
 
-    originals, orig_names, predictions, pred_names = load_and_preprocess(predictions_path)
+    originals, orig_names, predictions, pred_names = load_and_preprocess(predictions_path, autoremove_missing_files=True)
     # plot_images(originals, predictions, orig_names, pred_names, n=len(originals))
 
     originals, orig_names, predictions, pred_names = sort_by_score(originals, orig_names, predictions, pred_names,
