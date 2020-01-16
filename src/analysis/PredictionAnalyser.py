@@ -1,5 +1,5 @@
-# TODO: Refactor to have name and image be tuple
 import numpy as np
+import os
 
 import src.util.ImageLoader as ImageLoader
 import matplotlib.pyplot as plt
@@ -13,6 +13,10 @@ def order_sorter():
 
 def score_sorter():
     return lambda x: extract_score(x[-1])
+
+
+def indexer(to_index_from):
+    return lambda x: to_index_from.index(x)
 
 
 def remove_path(name):
@@ -62,7 +66,19 @@ def load_and_preprocess(path):
     originals, orig_names = sort_by_order(originals, orig_names)
     predictions, pred_names = sort_by_order(predictions, pred_names)
 
+    orig_orders = [order(o) for o in orig_names]
+    pred_orders = [order(p) for p in pred_names]
+    missing_originals = set(orig_orders) - set(pred_orders)
+    missing_predictions = set(pred_orders) - set(orig_orders)
+
+    assert not missing_originals and not missing_predictions, f"Missing predictions for originals: {missing_originals if missing_originals else None}. Missing originals for predictions: {missing_predictions if missing_predictions else None} "
+
     return originals, orig_names, predictions, pred_names
+
+
+def extract_model_name(name):
+    s = name.split('.')[0].split('_')
+    return '_'.join(s[1:])
 
 
 def extract_score(pred):
@@ -75,7 +91,7 @@ def sort_by_score(originals, orig_names, predictions, pred_names, highest_first=
     sorted_predictions, sorted_pred_names = arrange_files(predictions, pred_names, score_sorter())
     sorted_originals, sorted_orig_names = arrange_files(originals, orig_names, order_sorter())
 
-    aligned = align_sort(list(zip(sorted_originals, sorted_orig_names)), sorted_pred_names, order)
+    aligned = align_sort(list(zip(sorted_originals, sorted_orig_names)), sorted_pred_names, indexer(pred_names))
     sorted_originals, sorted_orig_names = zip(*aligned)
 
     if highest_first:
@@ -85,7 +101,17 @@ def sort_by_score(originals, orig_names, predictions, pred_names, highest_first=
     return sorted_originals, sorted_orig_names, sorted_predictions, sorted_pred_names
 
 
-def plot_images(originals, predictions, orig_names, pred_names, n=100, save_by_order=True):
+def plot_images(originals, predictions, orig_names, pred_names, savedir, n=100, save_by_order=True, show_plot=False, save_fig=True):
+
+    model_name = extract_model_name(orig_names[0])
+    save_path = Path(savedir) / model_name
+    if not save_path.exists():
+        save_path.mkdir()
+    else:
+        # Delete existing files
+        files = os.listdir(save_path)
+        [os.remove(str(save_path / file)) for file in files]
+
     for i, (o, p, o_name, p_name) in enumerate(zip(originals, predictions, orig_names, pred_names)):
         p_score = extract_score(p_name)
         p_index = order(p_name)
@@ -99,12 +125,16 @@ def plot_images(originals, predictions, orig_names, pred_names, n=100, save_by_o
         ax2.imshow(np.array(p))
         score = "{0:.5f}".format(p_score)
         ax2.title.set_text(f'Prediction, score: {score}')
-        plt.savefig(f'./src/analysis/images/Comparison_n{i if save_by_order else p_index}_{o_index}_{p_index}.png')
+        if save_fig:
+            plt.savefig(f'{save_path}/Comparison_n{i if save_by_order else p_index}_{o_index}_{p_index}.png')
+        if show_plot:
+            plt.show()
+        plt.close(fig)
         if i == n - 1:
             return
 
 
-def create_score_plot(originals, predictions, orig_names, pred_names, n=100, save_by_order=True):
+def create_score_plot(originals, predictions, orig_names, pred_names):
     fig, ax = plt.subplots()
     scores = [extract_score(p) for p in pred_names]
     max_score = max(scores)
@@ -143,13 +173,14 @@ def create_score_plot(originals, predictions, orig_names, pred_names, n=100, sav
 
 if __name__ == '__main__':
     path = Path.cwd()
-    path = path / 'predictions'
+    predictions_path = path / 'predictions' / 'model_rgb_64_fully-connected_10_2020-01-13_36'
+    save_path = str(path / 'src' / 'analysis' / 'images')
 
-    originals, orig_names, predictions, pred_names = load_and_preprocess(path)
+    originals, orig_names, predictions, pred_names = load_and_preprocess(predictions_path)
     # plot_images(originals, predictions, orig_names, pred_names, n=len(originals))
 
     originals, orig_names, predictions, pred_names = sort_by_score(originals, orig_names, predictions, pred_names,
                                                                    highest_first=True)
 
-    # plot_images(originals, predictions, orig_names, pred_names, n=len(originals))
+    plot_images(originals, predictions, orig_names, pred_names, savedir=save_path, n=100)
     create_score_plot(originals, predictions, orig_names, pred_names)
