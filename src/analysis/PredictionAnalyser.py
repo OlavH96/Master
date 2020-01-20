@@ -1,6 +1,9 @@
 import numpy as np
 import os
 
+import matplotlib
+matplotlib.use('Agg')
+
 from matplotlib.offsetbox import AnnotationBbox, OffsetImage
 
 import src.util.Files as Files
@@ -61,17 +64,21 @@ def load_and_preprocess(path: str, autoremove_missing_files: bool = False):
     origPath = str(path + '/orig*')
     predPath = str(path + '/pred*')
 
-    originals, orig_names_with_path = ImageLoader.load_images(origPath)
-    predictions, pred_names_with_path = ImageLoader.load_images(predPath)
+    originals, orig_names_with_path = ImageLoader.load_images(origPath, num=6000)
+    predictions, pred_names_with_path = ImageLoader.load_images(predPath, num=6000)
 
     orig_names = [remove_path(n) for n in orig_names_with_path]
     pred_names = [remove_path(n) for n in pred_names_with_path]
-
+    print("Originals",len(orig_names), orig_names[0])
+    print("Predictions",len(pred_names), pred_names[0])
     originals, orig_names = sort_by_order(originals, orig_names)
     predictions, pred_names = sort_by_order(predictions, pred_names)
 
     orig_orders = [order(o) for o in orig_names]
     pred_orders = [order(p) for p in pred_names]
+
+    print("order", orig_names[0], order(orig_names[0]), orig_orders[0])    
+
     missing_originals = set(orig_orders) - set(pred_orders)
     missing_predictions = set(pred_orders) - set(orig_orders)
 
@@ -118,10 +125,13 @@ def sort_by_score(originals, orig_names, predictions, pred_names, highest_first=
 
 
 def plot_images(originals, predictions, orig_names, pred_names, save_path, n=100, save_by_order=True, show_plot=False, save_fig=True):
+
+    print(f"Plotting {len(orig_names)} images")
     for i, (o, p, o_name, p_name) in enumerate(zip(originals, predictions, orig_names, pred_names)):
         p_score = extract_score(p_name)
         p_index = order(p_name)
         o_index = order(o_name)
+        print(f"Creating image {p_index}-{o_index}, {p_score}")
         assert p_index == o_index
         fig, (ax1, ax2) = plt.subplots(1, 2)
         fig.suptitle(f'Image #{o_index}')
@@ -132,7 +142,7 @@ def plot_images(originals, predictions, orig_names, pred_names, save_path, n=100
         score = "{0:.5f}".format(p_score)
         ax2.title.set_text(f'Prediction, score: {score}')
         if save_fig:
-            plt.savefig(f'{save_path}/Comparison_n{i if save_by_order else p_index}_{o_index}_{p_index}.png')
+            plt.savefig(f'{save_path}/Comparison_n{i if save_by_order else p_index}_{o_index}_{p_score}.png')
         if show_plot:
             plt.show()
         plt.close(fig)
@@ -187,10 +197,10 @@ if __name__ == '__main__':
     originals, orig_names, predictions, pred_names = load_and_preprocess(predictions_path, autoremove_missing_files=args.autoremove)
 
     save_path = create_dir_for_images(args.save_dir, orig_names)
-
+    print("Saving images to ", save_path)
     originals, orig_names, predictions, pred_names = sort_by_score(originals, orig_names, predictions, pred_names, highest_first=True)
 
-    plot_images(originals, predictions, orig_names, pred_names, save_path=save_path, n=args.num, show_plot=args.visual, save_fig=not args.visual)
+    plot_images(originals, predictions, orig_names, pred_names, save_path=save_path, n=args.num, show_plot=args.visual, save_fig=True)
 
     num_scored = 50
     originals = originals[:num_scored]
