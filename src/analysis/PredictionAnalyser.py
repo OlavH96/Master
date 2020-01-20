@@ -3,6 +3,7 @@ import os
 
 from matplotlib.offsetbox import AnnotationBbox, OffsetImage
 
+import src.util.Arguments as Arguments
 import src.util.ImageLoader as ImageLoader
 import matplotlib.pyplot as plt
 from pathlib import Path
@@ -17,15 +18,15 @@ def score_sorter():
     return lambda x: extract_score(x[-1])
 
 
-def indexer(to_index_from):
+def indexer(to_index_from: []):
     return lambda x: to_index_from.index(x)
 
 
-def remove_path(name):
+def remove_path(name: str):
     return name.split('/')[-1]
 
 
-def order(name):
+def order(name: str):
     """
     Extract index of image from my poor naming scheme
     :param name: name from which to extract index
@@ -55,9 +56,9 @@ def align_sort(to_align, align_with, align_function):
     return aligned
 
 
-def load_and_preprocess(path, autoremove_missing_files=False):
-    origPath = str(path / 'orig*')
-    predPath = str(path / 'pred*')
+def load_and_preprocess(path: str, autoremove_missing_files: bool = False):
+    origPath = str(path + '/orig*')
+    predPath = str(path + '/pred*')
 
     originals, orig_names_with_path = ImageLoader.load_images(origPath)
     predictions, pred_names_with_path = ImageLoader.load_images(predPath)
@@ -74,8 +75,7 @@ def load_and_preprocess(path, autoremove_missing_files=False):
     missing_predictions = set(pred_orders) - set(orig_orders)
 
     if autoremove_missing_files and (missing_originals or missing_predictions):
-        print(
-            f"Removing missing files. Originals removed: {sorted(list(missing_originals))}, Predictions removed: {sorted(list(missing_predictions))}")
+        print(f"Removing missing files. Originals removed: {sorted(list(missing_originals))}, Predictions removed: {sorted(list(missing_predictions))}")
         for f in orig_names_with_path:
             orig = remove_path(f)
             if order(orig) in missing_originals:
@@ -116,17 +116,7 @@ def sort_by_score(originals, orig_names, predictions, pred_names, highest_first=
     return sorted_originals, sorted_orig_names, sorted_predictions, sorted_pred_names
 
 
-def plot_images(originals, predictions, orig_names, pred_names, savedir, n=100, save_by_order=True, show_plot=False,
-                save_fig=True):
-    model_name = extract_model_name(orig_names[0])
-    save_path = Path(savedir) / model_name
-    if not save_path.exists():
-        save_path.mkdir()
-    else:
-        # Delete existing files
-        files = os.listdir(save_path)
-        [os.remove(str(save_path / file)) for file in files]
-
+def plot_images(originals, predictions, orig_names, pred_names, save_path, n=100, save_by_order=True, show_plot=False, save_fig=True):
     for i, (o, p, o_name, p_name) in enumerate(zip(originals, predictions, orig_names, pred_names)):
         p_score = extract_score(p_name)
         p_index = order(p_name)
@@ -149,7 +139,7 @@ def plot_images(originals, predictions, orig_names, pred_names, savedir, n=100, 
             return
 
 
-def create_score_plot(originals, predictions, orig_names, pred_names):
+def create_score_plot(originals, predictions, orig_names, pred_names, save_path):
     fig, ax = plt.subplots(figsize=(19.2, 10.8))
     plt.xlabel("Image Number")
     plt.ylabel("Score")
@@ -179,26 +169,32 @@ def create_score_plot(originals, predictions, orig_names, pred_names):
         ab = AnnotationBbox(OffsetImage(im), (i, p_score), frameon=False)
         ax.add_artist(ab)
 
-    plt.show()
+    plt.savefig(f'{save_path}/ScorePlot.png')
+
+
+def create_dir_for_images(path: str, image_names: [str]) -> Path:
+    model_name = extract_model_name(image_names[0])
+    p = Path(path) / model_name
+    return ImageLoader.makedir_else_cleardir(p)
 
 
 if __name__ == '__main__':
-    path = Path.cwd()
-    predictions_path = path / 'predictions' / 'model_rgb_64_fully-connected_10_2020-01-13_36'
-    save_path = str(path / 'src' / 'analysis' / 'images')
+    args = Arguments.analyser_arguments()
 
-    originals, orig_names, predictions, pred_names = load_and_preprocess(predictions_path,
-                                                                         autoremove_missing_files=True)
+    predictions_path = args.images_dir
 
-    # plot_images(originals, predictions, orig_names, pred_names, n=len(originals))
+    originals, orig_names, predictions, pred_names = load_and_preprocess(predictions_path, autoremove_missing_files=args.autoremove)
 
-    originals, orig_names, predictions, pred_names = sort_by_score(originals, orig_names, predictions, pred_names,
-                                                                   highest_first=True)
-    num_scored = len(orig_names) // 2
+    save_path = create_dir_for_images(args.save_dir, orig_names)
+
+    originals, orig_names, predictions, pred_names = sort_by_score(originals, orig_names, predictions, pred_names, highest_first=True)
+
+    plot_images(originals, predictions, orig_names, pred_names, save_path=save_path, n=args.num, show_plot=args.visual, save_fig=not args.visual)
+
+    num_scored = 50
     originals = originals[:num_scored]
     orig_names = orig_names[:num_scored]
     predictions = predictions[:num_scored]
     pred_names = pred_names[:num_scored]
 
-    # plot_images(originals, predictions, orig_names, pred_names, savedir=save_path, n=100)
-    create_score_plot(originals, predictions, orig_names, pred_names)
+    create_score_plot(originals, predictions, orig_names, pred_names, save_path)

@@ -1,5 +1,7 @@
 import os
 import glob
+from pathlib import Path
+
 from PIL import Image, ImageOps
 import numpy as np
 import matplotlib.pyplot as plt
@@ -36,11 +38,12 @@ def center_image_with_padding(image, x, y):
         new_im = ImageOps.expand(new_im, (0, y_remain, 0, 0))
     return new_im
 
-def resize_image(image, new_x, new_y):
 
+def resize_image(image, new_x, new_y):
     return image.resize((new_x, new_y), Image.NEAREST)
 
-def find_max_min_image_size(path = 'detected_images/*.png'):
+
+def find_max_min_image_size(path='detected_images/*.png'):
     max_x = 0
     max_y = 0
 
@@ -54,6 +57,7 @@ def find_max_min_image_size(path = 'detected_images/*.png'):
 
     return max_x, max_y
 
+
 def load_images_centered():
     path = 'detected_images/*.png'
 
@@ -65,25 +69,40 @@ def load_images_centered():
     fitted_images = list(map(lambda i: center_image_with_padding(i, max_x, max_y), images))
     return np.array([np.array(i) for i in fitted_images])
 
-def load_images_generator(path = 'detected_images/*.png', color_mode='RGB'):
+
+def load_images_generator(path='detected_images/*.png', color_mode='RGB'):
     for filename in glob.glob(path):
         im = Image.open(filename).convert(color_mode)
         yield im
 
-def load_images_centered_generator(max_x = 1280, max_y = 720, path='detected_images/*.png'):
 
+def load_images_centered_generator(max_x=1280, max_y=720, path='detected_images/*.png'):
     for filename in glob.glob(path):
         im = Image.open(filename)
         centered = center_image_with_padding(im, max_x, max_y)
         yield np.array(centered)
 
+
+def makedir_else_cleardir(path: str or Path) -> Path:
+    if not type(path) is Path:
+        path = Path(path)
+    if not path.exists():
+        path.mkdir()
+    else:
+        # Delete existing files
+        files = os.listdir(str(path))
+        [os.remove(str(path / file)) for file in files]
+
+    return path
+
+
 if __name__ == '__main__':
 
-   # import time
-   # start = time.time()
-   # np_images = load_images_centered()
-   # end = time.time()
-   # print(end-start, "s")
+    # import time
+    # start = time.time()
+    # np_images = load_images_centered()
+    # end = time.time()
+    # print(end-start, "s")
 
     for i in load_images_centered_generator():
         plt.imshow(i)

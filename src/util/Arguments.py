@@ -85,7 +85,6 @@ def anomaly_arguments():
         help='Type of anomaly model architecture'
     )
 
-
     parser.add_argument(
         '--color',
         dest='color',
@@ -183,6 +182,51 @@ def downloader_arguments():
         action='store_true',
         default=False,
         help='Should save and store videos to json'
+    )
+
+    return parser.parse_args()
+
+
+def analyser_arguments():
+    parser = argparse.ArgumentParser(description='Analyze predicted images VS actual images.')
+    parser.add_argument(
+        '--images-dir',
+        dest='images_dir',
+        type=str,
+        help='Directory containing originals and predictions',
+        required=True
+    )
+
+    parser.add_argument(
+        '--save-dir',
+        dest='save_dir',
+        type=str,
+        help='Directory to save results',
+        required=True
+    )
+
+    parser.add_argument(
+        '--no-visual',
+        dest='visual',
+        action='store_true',
+        default=False,
+        help='Run without utilizing visual display'
+    )
+
+    parser.add_argument(
+        '--autoremove',
+        dest='autoremove',
+        action='store_false',
+        default=True,
+        help='Delete unmatched orignals / predictions automatically'
+    )
+
+    parser.add_argument(
+        '--num',
+        dest='num',
+        type=int,
+        default=100,
+        help='Number of analyzed images'
     )
 
     return parser.parse_args()
