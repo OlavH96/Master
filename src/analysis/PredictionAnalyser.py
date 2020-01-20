@@ -179,6 +179,28 @@ def create_dir_for_images(path: str, image_names: [str]) -> Path:
     return Files.makedir_else_cleardir(p)
 
 
+def probability(n):
+    out = []
+
+    step = 1 / n
+    current = 1
+    for i in range(n // 2):
+        out.append(current)
+        current -= step
+    for i in range(n // 2):
+        out.append(current)
+        current += step
+
+    while len(out) != n:
+        out.append(1)
+
+    out = np.array(out)
+    out = out / sum(out)
+
+    assert len(out) == n
+    return out
+
+
 if __name__ == '__main__':
     args = Arguments.analyser_arguments()
 
@@ -190,12 +212,14 @@ if __name__ == '__main__':
 
     originals, orig_names, predictions, pred_names = sort_by_score(originals, orig_names, predictions, pred_names, highest_first=True)
 
-    plot_images(originals, predictions, orig_names, pred_names, save_path=save_path, n=args.num, show_plot=args.visual, save_fig=not args.visual)
+    # plot_images(originals, predictions, orig_names, pred_names, save_path=save_path, n=args.num, show_plot=args.visual, save_fig=not args.visual)
 
     num_scored = 50
-    originals = originals[:num_scored]
-    orig_names = orig_names[:num_scored]
-    predictions = predictions[:num_scored]
-    pred_names = pred_names[:num_scored]
+
+    r = sorted(list(np.random.choice(a=list(range(len(orig_names))), size=num_scored, replace=False, p=probability(len(orig_names)))))
+    originals = [originals[i] for i in r]
+    orig_names = [orig_names[i] for i in r]
+    predictions = [predictions[i] for i in r]
+    pred_names = [pred_names[i] for i in r]
 
     create_score_plot(originals, predictions, orig_names, pred_names, save_path)
