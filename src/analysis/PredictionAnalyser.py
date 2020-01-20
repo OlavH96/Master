@@ -3,6 +3,7 @@ import os
 
 from matplotlib.offsetbox import AnnotationBbox, OffsetImage
 
+import src.util.Files as Files
 import src.util.Arguments as Arguments
 import src.util.ImageLoader as ImageLoader
 import matplotlib.pyplot as plt
@@ -175,7 +176,7 @@ def create_score_plot(originals, predictions, orig_names, pred_names, save_path)
 def create_dir_for_images(path: str, image_names: [str]) -> Path:
     model_name = extract_model_name(image_names[0])
     p = Path(path) / model_name
-    return ImageLoader.makedir_else_cleardir(p)
+    return Files.makedir_else_cleardir(p)
 
 
 if __name__ == '__main__':

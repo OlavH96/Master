@@ -9,6 +9,8 @@ from keras.models import load_model
 from keras.models import Model
 from keras.callbacks import ModelCheckpoint
 import matplotlib.pyplot as plt
+
+import src.util.Files as Files
 from src.util.ImageLoader import load_images_generator, resize_image
 import numpy as np
 import logging as log
@@ -63,7 +65,6 @@ def train_on_images(epochs, max_x, max_y, path, model_type, model_name, arg_step
     steps = len(glob.glob(path))
     if arg_steps != 0:
         steps = arg_steps
-    
 
     # define the checkpoint
     filepath = model_name
@@ -101,7 +102,7 @@ def load_model_and_predict(model_path, num_predictions, path, max_x, max_y, mode
         # mu = model.get_layer('dense_3')(o)
         # log_var = model.get_layer('dense_4')(o)
 
-        #model = load_model(model_path, custom_objects={'custom_vae_loss': get_dummy_loss((max_x, max_y, 3))})
+        # model = load_model(model_path, custom_objects={'custom_vae_loss': get_dummy_loss((max_x, max_y, 3))})
         # model = load_model(model_path, custom_objects={'custom_vae_loss': vae_loss((max_x, max_y, 3), mu, log_var)})
 
     if model_type != 'vae' and not model:
@@ -117,6 +118,9 @@ def load_model_and_predict(model_path, num_predictions, path, max_x, max_y, mode
     random.shuffle(images)
     index = 0
     print(f'Loaded {len(images)} images')
+
+    model_name = model_path.split('.')[0]
+    save_dir = Files.mkdir(f'./predictions/{model_name}')
     for i, target in images:  # centered_image_generator(path, max_x, max_y):
         pred = model.predict(i)
         evaluate = model.evaluate(i, target)
@@ -125,7 +129,7 @@ def load_model_and_predict(model_path, num_predictions, path, max_x, max_y, mode
                 ii = Image.fromarray((ii * 255).astype(np.uint8), 'HSV')
                 ii = ii.convert("RGB")
                 ii = np.array(ii)
-            plt.imsave(f'predictions/orig_{model_path}_{index}.png', ii)
+            plt.imsave(str(save_dir / f'orig_{model_path}_{index}.png'), ii)
 
         if type(evaluate) is list:
             evaluate = evaluate[0]
@@ -136,7 +140,7 @@ def load_model_and_predict(model_path, num_predictions, path, max_x, max_y, mode
                 p = Image.fromarray((p * 255).astype(np.uint8), 'HSV')
                 p = p.convert('RGB')
                 p = np.array(p)
-            plt.imsave(f'predictions/pred_{model_path}_{index}_{str(evaluate)}.png', p, vmin=0, vmax=1)
+            plt.imsave(str(save_dir / f'pred_{model_path}_{index}_{str(evaluate)}.png'), p, vmin=0, vmax=1)
 
         index += 1
         if index == num_predictions:

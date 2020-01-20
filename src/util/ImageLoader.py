@@ -1,12 +1,8 @@
-import os
 import glob
-from pathlib import Path
 
 from PIL import Image, ImageOps
 import numpy as np
 import matplotlib.pyplot as plt
-import cv2
-import math
 
 
 def load_images(path):
@@ -81,19 +77,6 @@ def load_images_centered_generator(max_x=1280, max_y=720, path='detected_images/
         im = Image.open(filename)
         centered = center_image_with_padding(im, max_x, max_y)
         yield np.array(centered)
-
-
-def makedir_else_cleardir(path: str or Path) -> Path:
-    if not type(path) is Path:
-        path = Path(path)
-    if not path.exists():
-        path.mkdir()
-    else:
-        # Delete existing files
-        files = os.listdir(str(path))
-        [os.remove(str(path / file)) for file in files]
-
-    return path
 
 
 if __name__ == '__main__':
