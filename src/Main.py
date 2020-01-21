@@ -15,7 +15,8 @@ from src.util.ImageLoader import load_images_generator, resize_image
 import numpy as np
 import logging as log
 import random
-from src.util.Arguments import anomaly_arguments
+from src.util.Arguments import anomaly_arguments, get_model_choice
+import src.util.Arguments as Arguments
 from keras import backend as K
 from keras import objectives
 from scipy.stats import norm
@@ -52,15 +53,16 @@ def train_on_images(epochs, max_x, max_y, path, model_type, model_name, arg_step
 
     epochs = epochs
     shape = (max_y, max_x, 3)
-
-    if model_type == 'fully-connected':
+    if model_type == get_model_choice(Arguments.FC):
         model = autoencoder(shape)
-    if model_type == 'conv':
+    if model_type == get_model_choice(Arguments.CONV):
         # 4,2,64 decreasing, 4,2,16 increasing
         model = conv_autoencoder(shape, num_reductions=4, filter_reduction_on=2, num_filters_start=16, increasing=True)
-    if model_type == 'vae':
+    if model_type == get_model_choice(Arguments.VAE):
         model, log_var, mu = vae_autoencoder(shape)
         print(log_var, mu)
+    if model_type == get_model_choice(Arguments.FCS):
+        model = autoencoder(shape)
 
     steps = len(glob.glob(path))
     if arg_steps != 0:

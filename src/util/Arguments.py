@@ -1,5 +1,28 @@
 import argparse
 
+FC = "fc"
+VAE = "vae"
+CONV = "conv"
+FCS = "fc-s"
+
+
+def model_choices_dict():
+    return {
+        VAE: 'vae',
+        CONV: 'conv',
+        FC: 'fully-connected',
+        FCS: 'fully-connected-small',
+    }
+
+
+def model_choices_list():
+    return list(model_choices_dict().values())
+
+
+def get_model_choice(key):
+    assert key in list(model_choices_dict().keys())
+    return model_choices_dict()[key]
+
 
 def anomaly_arguments():
     parser = argparse.ArgumentParser(description="Train and run anomaly detection")
@@ -79,9 +102,9 @@ def anomaly_arguments():
     parser.add_argument(
         '--architecture',
         dest='model_type',
-        choices=['conv', 'fully-connected', 'vae'],
+        choices=model_choices_list(),
         type=str,
-        default='fully-connected',
+        default=model_choices_dict().get('fc'),
         help='Type of anomaly model architecture'
     )
 
