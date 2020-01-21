@@ -54,7 +54,7 @@ def train_on_images(epochs, max_x, max_y, path, model_type, model_name, arg_step
     epochs = epochs
     shape = (max_y, max_x, 3)
     if model_type == get_model_choice(Arguments.FC):
-        model = autoencoder(shape)
+        model = autoencoder(shape, num_reductions=1)
     if model_type == get_model_choice(Arguments.CONV):
         # 4,2,64 decreasing, 4,2,16 increasing
         model = conv_autoencoder(shape, num_reductions=4, filter_reduction_on=2, num_filters_start=16, increasing=True)
@@ -62,15 +62,15 @@ def train_on_images(epochs, max_x, max_y, path, model_type, model_name, arg_step
         model, log_var, mu = vae_autoencoder(shape)
         print(log_var, mu)
     if model_type == get_model_choice(Arguments.FCS):
-        model = autoencoder(shape)
+        model = autoencoder(shape, num_reductions=4)
 
     steps = len(glob.glob(path))
     if arg_steps != 0:
         steps = arg_steps
+    model.summary()
 
     # define the checkpoint
-    filepath = model_name
-    checkpoint = ModelCheckpoint(filepath, monitor='loss', verbose=1, save_best_only=True, mode='min')
+    checkpoint = ModelCheckpoint(model_name, monitor='loss', verbose=1, save_best_only=True, mode='min')
     callbacks_list = [checkpoint]
 
     log.info('Fitting model...')
@@ -93,7 +93,7 @@ def train_on_images(epochs, max_x, max_y, path, model_type, model_name, arg_step
 def load_model_and_predict(model_path, num_predictions, path, max_x, max_y, model_type, model=None, color_mode="RGB"):
     # vae_loss(image_shape=(max_x, max_y, 3), log_var=0.5, mu=0.5) 
     im_shape = (max_x, max_y, 3)
-    if model_type == 'vae' and not model:
+    if model_type == get_model_choice(Arguments.VAE) and not model:
         _, log_var, mu = vae_autoencoder(im_shape)
         model = load_model(model_path, custom_objects={'custom_vae_loss': vae_loss(im_shape, log_var, mu)})
         # model = load_model(model_path, custom_objects={'custom_vae_loss': lambda x,y: K.mean(np.array(0))})#vae_loss(im_shape, log_var, mu)})
@@ -107,7 +107,7 @@ def load_model_and_predict(model_path, num_predictions, path, max_x, max_y, mode
         # model = load_model(model_path, custom_objects={'custom_vae_loss': get_dummy_loss((max_x, max_y, 3))})
         # model = load_model(model_path, custom_objects={'custom_vae_loss': vae_loss((max_x, max_y, 3), mu, log_var)})
 
-    if model_type != 'vae' and not model:
+    if model_type != get_model_choice(Arguments.VAE) and not model:
         model = load_model(model_path)
     model.summary()
     print("Loaded Model", model, model.input_shape)

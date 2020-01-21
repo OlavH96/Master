@@ -58,27 +58,27 @@ def conv_autoencoder(io_shape, num_reductions=5, filter_reduction_on=2, num_filt
     return ae
 
 
-def autoencoder(image_shape):
+def autoencoder(image_shape, num_reductions=1):
     image_x = image_shape[0]
     image_y = image_shape[1]
     image_z = image_shape[2]
 
     total_pixels = image_y * image_x * image_z
-    translator_factor = 2
-    translator_layer_size = int(total_pixels / translator_factor)
-    middle_factor = 2
-    middle_layer_size = int(translator_layer_size / middle_factor)
-
-    print(total_pixels)
-    print(translator_layer_size)
-    print(middle_layer_size)
 
     inputs = keras.Input(shape=image_shape, name='image')
     x = layers.Flatten(name='flattened')(inputs)  # turn image to vector.
 
-    x = layers.Dense(translator_layer_size, activation='relu', name='encoder')(x)
-    x = layers.Dense(middle_layer_size, activation='relu', name='middle_layer')(x)
-    x = layers.Dense(translator_layer_size, activation='relu', name='decoder')(x)
+    current_size = total_pixels // 2
+    for _ in range(num_reductions):
+        x = layers.Dense(current_size, activation='relu', name=f'encoder_{_}')(x)
+        current_size //= 2
+
+    x = layers.Dense(current_size, activation='relu', name='middle_layer')(x)
+    current_size *= 2
+
+    for _ in range(num_reductions):
+        x = layers.Dense(current_size, activation='relu', name=f'decoder_{_}')(x)
+        current_size *= 2
 
     outputs = layers.Dense(total_pixels, activation='sigmoid', name='reconstructed')(x)
     outputs = layers.Reshape(image_shape)(outputs)
@@ -93,6 +93,7 @@ def autoencoder(image_shape):
                   # List of metrics to monitor
                   metrics=["mean_squared_error"])
     model.summary()
+    assert model.output_shape[1:] == image_shape, f'Output Shape {model.output_shape[1:]} is not equal input shape {image_shape}'
     return model
 
 # https://github.com/keras-team/keras/blob/master/examples/variational_autoencoder.py
