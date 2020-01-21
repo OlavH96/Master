@@ -8,6 +8,8 @@ import keras.layers as layers
 from keras.models import load_model
 from keras.models import Model
 from keras.callbacks import ModelCheckpoint
+import matplotlib
+matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 
 import src.util.Files as Files

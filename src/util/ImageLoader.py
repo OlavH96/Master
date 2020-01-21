@@ -5,10 +5,10 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 
-def load_images(path):
+def load_images(path, num=1000):
     image_list = []
     image_names = []
-    for filename in glob.glob(path)[:1000]:
+    for filename in glob.glob(path)[:num]:
         im = Image.open(filename)
         image_list.append(im)
         image_names.append(filename)
