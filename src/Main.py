@@ -13,7 +13,7 @@ matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 
 import src.util.Files as Files
-from src.util.ImageLoader import load_images_generator, resize_image
+from src.util.ImageLoader import load_images_generator, resize_image, load_images_generator_with_filename
 import numpy as np
 import logging as log
 import random
@@ -36,6 +36,15 @@ def image_generator(path, max_x, max_y, color_mode="RGB"):
         i = np.expand_dims(i, axis=0)
         i = i / 255
         yield (i, i)
+
+def image_generator_with_filename(path, max_x, max_y, color_mode="RGB"):
+    for i, f in load_images_generator_with_filename(path, color_mode=color_mode):
+        i = resize_image(i, max_x, max_y)
+        i = np.array(i)
+        i = np.expand_dims(i, axis=0)
+        i = i / 255
+        yield (i, f)
+
 
 
 def centered_image_generator(path, max_x, max_y, color_mode="RGB"):
@@ -118,14 +127,15 @@ def load_model_and_predict(model_path, num_predictions, path, max_x, max_y, mode
 
     # create_manifold(model, max_x)
     # exit(1)
-    images = list(image_generator(path, max_x, max_y, color_mode=color_mode))
+    images = list(image_generator_with_filename(path, max_x, max_y, color_mode=color_mode))
     random.shuffle(images)
     index = 0
     print(f'Loaded {len(images)} images')
 
     model_name = model_path.split('.')[0]
     save_dir = Files.mkdir(f'./predictions/{model_name}')
-    for i, target in images:  # centered_image_generator(path, max_x, max_y):
+    for i, filename in images:  # centered_image_generator(path, max_x, max_y):
+        target = i
         pred = model.predict(i)
         evaluate = model.evaluate(i, target)
         for ii in i:
@@ -133,7 +143,7 @@ def load_model_and_predict(model_path, num_predictions, path, max_x, max_y, mode
                 ii = Image.fromarray((ii * 255).astype(np.uint8), 'HSV')
                 ii = ii.convert("RGB")
                 ii = np.array(ii)
-            plt.imsave(str(save_dir / f'orig_{model_path}_{index}.png'), ii)
+            plt.imsave(str(save_dir / f'orig_{model_path}_{hash(filename)}_{index}.png'), ii)
 
         if type(evaluate) is list:
             evaluate = evaluate[0]
@@ -144,7 +154,7 @@ def load_model_and_predict(model_path, num_predictions, path, max_x, max_y, mode
                 p = Image.fromarray((p * 255).astype(np.uint8), 'HSV')
                 p = p.convert('RGB')
                 p = np.array(p)
-            plt.imsave(str(save_dir / f'pred_{model_path}_{index}_{str(evaluate)}.png'), p, vmin=0, vmax=1)
+            plt.imsave(str(save_dir / f'pred_{model_path}_{index}_{hash(filename)}_{str(evaluate)}.png'), p, vmin=0, vmax=1)
 
         index += 1
         if index == num_predictions:

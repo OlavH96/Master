@@ -221,6 +221,14 @@ def analyser_arguments():
     )
 
     parser.add_argument(
+        '--detected-dir',
+        dest='detected_dir',
+        type=str,
+        help='Directory containing detected images to clean using results of analyis',
+        required=False
+    )
+
+    parser.add_argument(
         '--save-dir',
         dest='save_dir',
         type=str,
@@ -245,11 +253,21 @@ def analyser_arguments():
     )
 
     parser.add_argument(
+        '--plot',
+        dest='create_plots',
+        action='store_true',
+        default=False,
+        help='Create and save plots?'
+    )
+
+    parser.add_argument(
         '--num',
         dest='num',
         type=int,
         default=100,
         help='Number of analyzed images'
     )
+
+
 
     return parser.parse_args()

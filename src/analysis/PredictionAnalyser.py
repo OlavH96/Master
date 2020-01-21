@@ -2,6 +2,7 @@ import numpy as np
 import os
 
 import matplotlib
+
 matplotlib.use('Agg')
 
 from matplotlib.offsetbox import AnnotationBbox, OffsetImage
@@ -12,6 +13,7 @@ import src.util.ImageLoader as ImageLoader
 import matplotlib.pyplot as plt
 from pathlib import Path
 from skimage.transform import resize
+import src.analysis.PostProcessor
 
 
 def order_sorter():
@@ -69,15 +71,15 @@ def load_and_preprocess(path: str, autoremove_missing_files: bool = False):
 
     orig_names = [remove_path(n) for n in orig_names_with_path]
     pred_names = [remove_path(n) for n in pred_names_with_path]
-    print("Originals",len(orig_names), orig_names[0])
-    print("Predictions",len(pred_names), pred_names[0])
+    print("Originals", len(orig_names), orig_names[0])
+    print("Predictions", len(pred_names), pred_names[0])
     originals, orig_names = sort_by_order(originals, orig_names)
     predictions, pred_names = sort_by_order(predictions, pred_names)
 
     orig_orders = [order(o) for o in orig_names]
     pred_orders = [order(p) for p in pred_names]
 
-    print("order", orig_names[0], order(orig_names[0]), orig_orders[0])    
+    print("order", orig_names[0], order(orig_names[0]), orig_orders[0])
 
     missing_originals = set(orig_orders) - set(pred_orders)
     missing_predictions = set(pred_orders) - set(orig_orders)
@@ -125,7 +127,6 @@ def sort_by_score(originals, orig_names, predictions, pred_names, highest_first=
 
 
 def plot_images(originals, predictions, orig_names, pred_names, save_path, n=100, save_by_order=True, show_plot=False, save_fig=True):
-
     print(f"Plotting {len(orig_names)} images")
     for i, (o, p, o_name, p_name) in enumerate(zip(originals, predictions, orig_names, pred_names)):
         p_score = extract_score(p_name)
@@ -222,7 +223,18 @@ if __name__ == '__main__':
     print("Saving images to ", save_path)
     originals, orig_names, predictions, pred_names = sort_by_score(originals, orig_names, predictions, pred_names, highest_first=True)
 
-    # plot_images(originals, predictions, orig_names, pred_names, save_path=save_path, n=args.num, show_plot=args.visual, save_fig=not args.visual)
+    if args.create_plots:
+        plot_images(originals, predictions, orig_names, pred_names, save_path=save_path, n=args.num, show_plot=args.visual, save_fig=not args.visual)
+
+    det_path = args.detected_dir
+
+    if args.detected_dir:
+        src.analysis.PostProcessor.remove_from_folder(
+            originals=originals,
+            orig_names=orig_names,
+            pred_names=pred_names,
+            detected_images_path=args.detected_dir
+        )
 
     num_scored = 50
 
@@ -232,4 +244,5 @@ if __name__ == '__main__':
     predictions = [predictions[i] for i in r]
     pred_names = [pred_names[i] for i in r]
 
-    create_score_plot(originals, predictions, orig_names, pred_names, save_path)
+    if args.create_plots:
+        create_score_plot(originals, predictions, orig_names, pred_names, save_path)

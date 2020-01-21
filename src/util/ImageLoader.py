@@ -71,6 +71,10 @@ def load_images_generator(path='detected_images/*.png', color_mode='RGB'):
         im = Image.open(filename).convert(color_mode)
         yield im
 
+def load_images_generator_with_filename(path='detected_images/*.png', color_mode='RGB'):
+    for filename in glob.glob(path):
+        im = Image.open(filename).convert(color_mode)
+        yield im, filename
 
 def load_images_centered_generator(max_x=1280, max_y=720, path='detected_images/*.png'):
     for filename in glob.glob(path):
