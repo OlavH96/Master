@@ -1,3 +1,21 @@
+# Custom
+model_data/
+detected_images*
+models/
+model*
+predictions/
+scripts/
+*.png
+ext/
+log_*
+jobs/
+faster_rcnn_inception*
+logs/
+ssd*
+trained_models/
+inference_graph/
+sign_detection/
+
 .vscode
 .idea
 # Byte-compiled / optimized / DLL files

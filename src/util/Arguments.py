@@ -227,6 +227,15 @@ def analyser_arguments():
         help='Directory containing detected images to clean using results of analyis',
         required=False
     )
+    
+
+    parser.add_argument(
+        '--backup',
+        dest='backup',
+        type=str,
+        help='Create new dir for cleaned results instead of removing from the original folder.',
+        required=False
+    )
 
     parser.add_argument(
         '--save-dir',
@@ -247,8 +256,8 @@ def analyser_arguments():
     parser.add_argument(
         '--autoremove',
         dest='autoremove',
-        action='store_false',
-        default=True,
+        action='store_true',
+        default=False,
         help='Delete unmatched orignals / predictions automatically'
     )
 

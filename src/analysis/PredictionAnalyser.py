@@ -73,6 +73,7 @@ def load_and_preprocess(path: str, autoremove_missing_files: bool = False):
     pred_names = [remove_path(n) for n in pred_names_with_path]
     print("Originals", len(orig_names), orig_names[0])
     print("Predictions", len(pred_names), pred_names[0])
+    
     originals, orig_names = sort_by_order(originals, orig_names)
     predictions, pred_names = sort_by_order(predictions, pred_names)
 
@@ -84,7 +85,7 @@ def load_and_preprocess(path: str, autoremove_missing_files: bool = False):
     missing_originals = set(orig_orders) - set(pred_orders)
     missing_predictions = set(pred_orders) - set(orig_orders)
 
-    if autoremove_missing_files and (missing_originals or missing_predictions):
+    if False: #autoremove_missing_files and (missing_originals or missing_predictions):
         print(f"Removing missing files. Originals removed: {sorted(list(missing_originals))}, Predictions removed: {sorted(list(missing_predictions))}")
         for f in orig_names_with_path:
             orig = remove_path(f)
@@ -97,6 +98,7 @@ def load_and_preprocess(path: str, autoremove_missing_files: bool = False):
         return load_and_preprocess(path, autoremove_missing_files=False)
     else:
         assert not missing_originals and not missing_predictions, f"Missing predictions for originals: {sorted(list(missing_originals)) if missing_originals else None}. Missing originals for predictions: {sorted(list(missing_predictions)) if missing_predictions else None} "
+
     print("Load and preprocessing completed")
     return originals, orig_names, predictions, pred_names
 
@@ -222,6 +224,7 @@ if __name__ == '__main__':
     save_path = create_dir_for_images(args.save_dir, orig_names)
     print("Saving images to ", save_path)
     originals, orig_names, predictions, pred_names = sort_by_score(originals, orig_names, predictions, pred_names, highest_first=True)
+    print(orig_names[0])
 
     if args.create_plots:
         plot_images(originals, predictions, orig_names, pred_names, save_path=save_path, n=args.num, show_plot=args.visual, save_fig=not args.visual)
