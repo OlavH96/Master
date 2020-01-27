@@ -1,6 +1,9 @@
 import os
 from pathlib import Path
 
+def is_dir(path: str or Path) -> bool:
+
+    return Path(path).is_dir()
 
 def mkdir(path: str or Path) -> Path:
     path = Path(path)

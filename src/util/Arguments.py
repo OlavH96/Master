@@ -227,14 +227,13 @@ def analyser_arguments():
         help='Directory containing detected images to clean using results of analyis',
         required=False
     )
-    
 
     parser.add_argument(
         '--backup',
         dest='backup',
-        type=str,
+        action='store_true',
+        default=False,
         help='Create new dir for cleaned results instead of removing from the original folder.',
-        required=False
     )
 
     parser.add_argument(
@@ -276,7 +275,5 @@ def analyser_arguments():
         default=100,
         help='Number of analyzed images'
     )
-
-
 
     return parser.parse_args()

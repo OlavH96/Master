@@ -1,13 +1,64 @@
-from src.analysis.PredictionAnalyser import extract_score
+from src.analysis.PredictionAnalyser import extract_score, remove_path, extract_hash
 import os
 
 from PIL import Image, ImageOps
 import src.util.ImageLoader as ImageLoader
+from pathlib import Path
+import glob
+import shutil
+import src.util.Files as Files
 
-def remove_from_folder(originals, orig_names, pred_names, detected_images_path):
-    filenames = os.listdir(detected_images_path)
-    print(len(filenames))
-    print(filenames[0])
+
+def strip_path_modifier(path) -> [str, str]:
+    if Files.is_dir(path):
+        return path
+    return str(Path(path).parent.absolute())
+
+
+def copy_files(path, newpath):
+    Files.mkdir(newpath)
+    p = strip_path_modifier(path)
+    for f in glob.glob(path):
+        f = remove_path(f)
+        shutil.copyfile(
+            src=os.path.join(p, f),
+            dst=os.path.join(newpath, f)
+        )
+
+
+def do_create_backup(path):
+    stripped = strip_path_modifier(path)
+    new_path = stripped + '_backup'
+    copy_files(path, new_path)
+    return new_path
+
+
+def do_remove(orig_name, hashed, filenames, hashes, path):
+    try:
+        i = hashes.index(hashed)
+        f = filenames[i]
+        os.remove(os.path.join(path, f))
+    except ValueError:
+        print("Could not find file", hashed, orig_name)
+    else:
+        print("Removed", orig_name, "from dataset", f)
+
+
+def remove_from_folder(orig_names, pred_names, detected_images_path, limit, create_backup=True):
+    if create_backup:
+        detected_images_path = do_create_backup(detected_images_path)
+        print("Created backup in dir", detected_images_path)
+
+    filenames = glob.glob(detected_images_path)
+    filenames = [remove_path(f) for f in filenames]
+    hashes = [hash(f) for f in filenames]
+
     for o, p in zip(orig_names, pred_names):
-        print(o,p)
+        score = extract_score(p)
+        try:
+            hashed = extract_hash(o)
+        except:
+            print("Could not hash", o)
 
+        if score > limit:
+            do_remove(o, hashed, filenames, hashes, detected_images_path)

@@ -10,7 +10,9 @@ def load_images(path, num=1000):
     image_names = []
     for filename in glob.glob(path)[:num]:
         im = Image.open(filename)
-        image_list.append(im)
+        # https://github.com/python-pillow/Pillow/issues/1237. Pillow bug causes need for copy and close, else loading over ~3k images causes error.
+        image_list.append(im.copy())
+        im.close()
         image_names.append(filename)
     return image_list, image_names
 

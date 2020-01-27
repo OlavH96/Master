@@ -40,6 +40,8 @@ def order(name: str):
     """
     if name.startswith('pred'):
         split = name.split('_')
+        if len(str(int(split[-2]))) > 10:  # New file format, -2 is hash
+            return int(split[-3])
         return int(split[-2])
     split = name.split('_')
     x = split[-1].split('.')[0]
@@ -62,30 +64,31 @@ def align_sort(to_align, align_with, align_function):
     return aligned
 
 
-def load_and_preprocess(path: str, autoremove_missing_files: bool = False):
+def load_and_preprocess(path: str, autoremove_missing_files: bool = False, num_files=1000):
     origPath = str(path + '/orig*')
     predPath = str(path + '/pred*')
 
-    originals, orig_names_with_path = ImageLoader.load_images(origPath, num=6000)
-    predictions, pred_names_with_path = ImageLoader.load_images(predPath, num=6000)
+    originals, orig_names_with_path = ImageLoader.load_images(origPath, num=num_files)
+    predictions, pred_names_with_path = ImageLoader.load_images(predPath, num=num_files)
 
     orig_names = [remove_path(n) for n in orig_names_with_path]
     pred_names = [remove_path(n) for n in pred_names_with_path]
     print("Originals", len(orig_names), orig_names[0])
     print("Predictions", len(pred_names), pred_names[0])
-    
+
     originals, orig_names = sort_by_order(originals, orig_names)
     predictions, pred_names = sort_by_order(predictions, pred_names)
 
     orig_orders = [order(o) for o in orig_names]
     pred_orders = [order(p) for p in pred_names]
 
-    print("order", orig_names[0], order(orig_names[0]), orig_orders[0])
+    print("order orig", orig_names[0], order(orig_names[0]), orig_orders[0])
+    print("order pred", pred_names[0], order(pred_names[0]), pred_orders[0])
 
     missing_originals = set(orig_orders) - set(pred_orders)
     missing_predictions = set(pred_orders) - set(orig_orders)
 
-    if False: #autoremove_missing_files and (missing_originals or missing_predictions):
+    if autoremove_missing_files and (missing_originals or missing_predictions):
         print(f"Removing missing files. Originals removed: {sorted(list(missing_originals))}, Predictions removed: {sorted(list(missing_predictions))}")
         for f in orig_names_with_path:
             orig = remove_path(f)
@@ -113,6 +116,9 @@ def extract_score(pred):
     n = split[-1].split('.')
     return float('.'.join(n[:2]))
 
+def extract_hash(orig_name):
+
+    return int(orig_name.split('_')[-2])
 
 def sort_by_score(originals, orig_names, predictions, pred_names, highest_first=True):
     sorted_predictions, sorted_pred_names = arrange_files(predictions, pred_names, score_sorter())
@@ -128,7 +134,7 @@ def sort_by_score(originals, orig_names, predictions, pred_names, highest_first=
     return sorted_originals, sorted_orig_names, sorted_predictions, sorted_pred_names
 
 
-def plot_images(originals, predictions, orig_names, pred_names, save_path, n=100, save_by_order=True, show_plot=False, save_fig=True):
+def plot_images(originals, predictions, orig_names, pred_names, save_path, n=100, save_by_order=True):
     print(f"Plotting {len(orig_names)} images")
     for i, (o, p, o_name, p_name) in enumerate(zip(originals, predictions, orig_names, pred_names)):
         p_score = extract_score(p_name)
@@ -144,16 +150,13 @@ def plot_images(originals, predictions, orig_names, pred_names, save_path, n=100
         ax2.imshow(np.array(p))
         score = "{0:.5f}".format(p_score)
         ax2.title.set_text(f'Prediction, score: {score}')
-        if save_fig:
-            plt.savefig(f'{save_path}/Comparison_n{i if save_by_order else p_index}_{o_index}_{p_score}.png')
-        if show_plot:
-            plt.show()
+        plt.savefig(f'{save_path}/Comparison_n{i if save_by_order else p_index}_{o_index}_{p_score}.png')
         plt.close(fig)
         if i == n - 1:
             return
 
 
-def create_score_plot(originals, predictions, orig_names, pred_names, save_path):
+def create_score_plot(originals, predictions, orig_names, pred_names, save_path, avg, std, show_originals=False):
     fig, ax = plt.subplots(figsize=(19.2, 10.8))
     plt.xlabel("Image Number")
     plt.ylabel("Score")
@@ -171,18 +174,21 @@ def create_score_plot(originals, predictions, orig_names, pred_names, save_path)
         o_im = resize(o_im, new_size)
 
         # https://stackoverflow.com/questions/22566284/matplotlib-how-to-plot-images-instead-of-points/53851017
-        if i % 2 != 0:
-            ab = AnnotationBbox(OffsetImage(o_im), (i, max_score), frameon=False)
-            ax.add_artist(ab)
-            plt.vlines(x=i, ymin=p_score, ymax=max_score)
-        else:
-            ab = AnnotationBbox(OffsetImage(o_im), (i, 0), frameon=False)
-            ax.add_artist(ab)
-            plt.vlines(x=i, ymin=0, ymax=p_score)
+        if show_originals:
+            if i % 2 != 0:
+                ab = AnnotationBbox(OffsetImage(o_im), (i, max_score), frameon=False)
+                ax.add_artist(ab)
+                plt.vlines(x=i, ymin=p_score, ymax=max_score, colors='grey')
+            else:
+                ab = AnnotationBbox(OffsetImage(o_im), (i, 0), frameon=False)
+                ax.add_artist(ab)
+                plt.vlines(x=i, ymin=0, ymax=p_score, colors='grey')
 
-        ab = AnnotationBbox(OffsetImage(im), (i, p_score), frameon=False)
+        ab = AnnotationBbox(OffsetImage(o_im if not show_originals else im), (i, p_score), frameon=False)
         ax.add_artist(ab)
-
+    plt.hlines(xmax=len(originals), xmin=0, y=avg, colors="red", label="Average")
+    plt.hlines(xmax=len(originals), xmin=0, y=avg+std, colors="blue", label="Limit")
+    plt.hlines(xmax=len(originals), xmin=0, y=avg-std, colors="blue", label="Limit")
     plt.savefig(f'{save_path}/ScorePlot.png')
 
 
@@ -190,6 +196,21 @@ def create_dir_for_images(path: str, image_names: [str]) -> Path:
     model_name = extract_model_name(image_names[0])
     p = Path(path) / model_name
     return Files.makedir_else_cleardir(p)
+
+
+"""
+There is probably some simple formula for this instead.
+p(n)
+  | \           /
+  |  \         /
+  |   \       /
+  |    \_____/
+  |______________  n
+"""
+
+
+def p(n):
+    return n ** 2
 
 
 def probability(n):
@@ -214,38 +235,71 @@ def probability(n):
     return out
 
 
-if __name__ == '__main__':
-    args = Arguments.analyser_arguments()
-
-    predictions_path = args.images_dir
-
-    originals, orig_names, predictions, pred_names = load_and_preprocess(predictions_path, autoremove_missing_files=args.autoremove)
-
-    save_path = create_dir_for_images(args.save_dir, orig_names)
+def do_plotting(originals, predictions, orig_names, pred_names, n, save_dir, avg, std):
+    save_path = create_dir_for_images(save_dir, orig_names)
     print("Saving images to ", save_path)
-    originals, orig_names, predictions, pred_names = sort_by_score(originals, orig_names, predictions, pred_names, highest_first=True)
-    print(orig_names[0])
-
-    if args.create_plots:
-        plot_images(originals, predictions, orig_names, pred_names, save_path=save_path, n=args.num, show_plot=args.visual, save_fig=not args.visual)
-
-    det_path = args.detected_dir
-
-    if args.detected_dir:
-        src.analysis.PostProcessor.remove_from_folder(
-            originals=originals,
-            orig_names=orig_names,
-            pred_names=pred_names,
-            detected_images_path=args.detected_dir
-        )
+    plot_images(originals, predictions, orig_names, pred_names, save_path=save_path, n=n)
 
     num_scored = 50
 
-    r = sorted(list(np.random.choice(a=list(range(len(orig_names))), size=num_scored, replace=False, p=probability(len(orig_names)))))
+    r = sorted(list(np.random.choice(a=list(range(len(orig_names) - 2)), size=num_scored, replace=False, p=probability(len(orig_names) - 2))))
+    e_o = originals[0]
+    e_p = predictions[0]
+    e_o_n = orig_names[0]
+    e_p_n = pred_names[0]
+
+    e_o_b = originals[-1]
+    e_p_b = predictions[-1]
+    e_o_n_b = orig_names[-1]
+    e_p_n_b = pred_names[-1]
+
     originals = [originals[i] for i in r]
     orig_names = [orig_names[i] for i in r]
     predictions = [predictions[i] for i in r]
     pred_names = [pred_names[i] for i in r]
 
+    originals.insert(0, e_o)
+    orig_names.insert(0, e_o_n)
+    predictions.insert(0, e_p)
+    pred_names.insert(0, e_p_n)
+
+    originals.append(e_o_b)
+    orig_names.append(e_o_n_b)
+    predictions.append(e_p_b)
+    pred_names.append(e_p_n_b)
+
+    create_score_plot(originals, predictions, orig_names, pred_names, save_path, avg, std, show_originals=True)
+
+
+if __name__ == '__main__':
+    args = Arguments.analyser_arguments()
+    print(args)
+
+    originals, orig_names, predictions, pred_names = load_and_preprocess(args.images_dir, autoremove_missing_files=args.autoremove, num_files=args.num)
+    originals, orig_names, predictions, pred_names = sort_by_score(originals, orig_names, predictions, pred_names, highest_first=True)
+
+    scores = [extract_score(p) for p in pred_names]
+    print(scores)
+    average = np.average(scores)
+    stddev = np.std(scores)
+    limit = average + stddev
+    print("average", average)
+    print("stddev", stddev)
+    print("limit", limit)
+
     if args.create_plots:
-        create_score_plot(originals, predictions, orig_names, pred_names, save_path)
+        do_plotting(
+            originals, predictions, orig_names, pred_names,
+            n=50,
+            save_dir=args.save_dir,
+            avg=average,
+            std=stddev
+        )
+    if args.detected_dir:
+        src.analysis.PostProcessor.remove_from_folder(
+            orig_names=orig_names,
+            pred_names=pred_names,
+            detected_images_path=args.detected_dir,
+            limit=average+stddev,
+            create_backup=args.backup
+        )
