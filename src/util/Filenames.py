@@ -1,5 +1,6 @@
 import hashlib
-
+from pathlib import Path
+import src.util.Files as Files
 
 def md5hash(v: str) -> str:
     return hashlib.md5(remove_path(v).strip().encode()).hexdigest()
