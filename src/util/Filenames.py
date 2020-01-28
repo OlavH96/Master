@@ -20,5 +20,5 @@ def extract_score(pred: str) -> float:
     return float('.'.join(n[:2]))
 
 
-def extract_hash(orig_name: str) -> int:
-    return int(orig_name.split('_')[-2])
+def extract_hash(orig_name: str) -> str:
+    return orig_name.split('_')[-2]

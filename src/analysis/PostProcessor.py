@@ -34,6 +34,7 @@ def do_create_backup(path):
 
 
 def do_remove(orig_name, hashed, filenames, hashes, path):
+    path = strip_path_modifier(path)
     try:
         i = hashes.index(hashed)
         f = filenames[i]
@@ -59,7 +60,7 @@ def remove_from_folder(orig_names, pred_names, detected_images_path, limit, crea
         try:
             hashed = extract_hash(o)
         except:
-            print("Could not hash", o)
+            print("Could not extract hash", o)
 
         if score > limit:
             do_remove(o, hashed, filenames, hashes, detected_images_path)

@@ -37,7 +37,7 @@ def order(name: str):
     """
     if name.startswith('pred'):
         split = name.split('_')
-        if len(str(int(split[-2]))) > 10:  # New file format, -2 is hash
+        if len(str(split[-2])) > 10:  # New file format, -2 is hash
             return int(split[-3])
         return int(split[-2])
     split = name.split('_')
