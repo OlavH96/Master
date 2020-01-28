@@ -229,6 +229,14 @@ def analyser_arguments():
     )
 
     parser.add_argument(
+        '--purge',
+        dest='purge',
+        action='store_true',
+        default=False,
+        help='Purge images in --detected-dir, OR the backup dir if --backup, which have too high loss.',
+    )
+
+    parser.add_argument(
         '--backup',
         dest='backup',
         action='store_true',

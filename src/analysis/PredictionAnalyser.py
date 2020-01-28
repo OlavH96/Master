@@ -269,5 +269,6 @@ if __name__ == '__main__':
             pred_names=pred_names,
             detected_images_path=args.detected_dir,
             limit=average + stddev,
-            create_backup=args.backup
+            create_backup=args.backup,
+            purge=args.purge
         )

@@ -1,4 +1,4 @@
-from src.util.Filenames import extract_score, extract_hash, remove_path, md5hash
+from src.util.Filenames import extract_score, extract_hash, remove_path, md5hash, strip_path_modifier
 import os
 
 from PIL import Image, ImageOps
@@ -8,11 +8,6 @@ import glob
 import shutil
 import src.util.Files as Files
 import src.util.Filenames as Filenames
-
-def strip_path_modifier(path) -> [str, str]:
-    if Files.is_dir(path):
-        return path
-    return str(Path(path).parent.absolute())
 
 
 def copy_files(path, newpath):
@@ -33,19 +28,20 @@ def do_create_backup(path):
     return new_path
 
 
-def do_remove(orig_name, hashed, filenames, hashes, path):
+def do_remove(orig_name, hashed, filenames, hashes, path, do_delete=False):
     path = strip_path_modifier(path)
     try:
         i = hashes.index(hashed)
         f = filenames[i]
-        os.remove(os.path.join(path, f))
+        if do_delete:
+            os.remove(os.path.join(path, f))
     except ValueError:
         print("Could not find file", hashed, orig_name)
     else:
-        print("Removed", orig_name, "from dataset", f)
+        print("Removed", orig_name, f, do_delete)
 
 
-def remove_from_folder(orig_names, pred_names, detected_images_path, limit, create_backup=True):
+def remove_from_folder(orig_names, pred_names, detected_images_path, limit, create_backup=True, purge=False):
     if create_backup:
         detected_images_path = do_create_backup(detected_images_path)
         print("Created backup in dir", detected_images_path)
@@ -63,4 +59,4 @@ def remove_from_folder(orig_names, pred_names, detected_images_path, limit, crea
             print("Could not extract hash", o)
 
         if score > limit:
-            do_remove(o, hashed, filenames, hashes, detected_images_path)
+            do_remove(o, hashed, filenames, hashes, detected_images_path, do_delete=purge)

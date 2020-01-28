@@ -22,3 +22,8 @@ def extract_score(pred: str) -> float:
 
 def extract_hash(orig_name: str) -> str:
     return orig_name.split('_')[-2]
+
+def strip_path_modifier(path) -> str:
+    if Files.is_dir(path):
+        return path
+    return str(Path(path).parent.absolute())

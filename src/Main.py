@@ -70,7 +70,7 @@ def train_on_images(epochs, max_x, max_y, path, model_type, model_name, arg_step
         model, log_var, mu = vae_autoencoder(shape)
         print(log_var, mu)
     if model_type == get_model_choice(Arguments.FCS):
-        model = autoencoder(shape, num_reductions=4)
+        model = autoencoder(shape, num_reductions=3)
 
     steps = len(glob.glob(path))
     if arg_steps != 0:
@@ -128,7 +128,7 @@ def load_model_and_predict(model_path, num_predictions, path, max_x, max_y, mode
     print(f'Loaded {len(images)} images')
 
     model_name = model_path.split('.')[0]
-    save_dir = Files.mkdir(f'./predictions/{model_name}')
+    save_dir = Files.mkdir(f'./predictions/{model_name}_{Filenames.remove_path(Filenames.strip_path_modifier(path))}')
     for i, filename in images:  # centered_image_generator(path, max_x, max_y):
         hashed = Filenames.md5hash(filename)
         pred = model.predict(i)
