@@ -1,4 +1,4 @@
-from src.analysis.PredictionAnalyser import extract_score, remove_path, extract_hash
+from src.util.Filenames import extract_score, extract_hash, remove_path, md5hash
 import os
 
 from PIL import Image, ImageOps
@@ -7,7 +7,7 @@ from pathlib import Path
 import glob
 import shutil
 import src.util.Files as Files
-
+import src.util.Filenames as Filenames
 
 def strip_path_modifier(path) -> [str, str]:
     if Files.is_dir(path):
@@ -51,7 +51,8 @@ def remove_from_folder(orig_names, pred_names, detected_images_path, limit, crea
 
     filenames = glob.glob(detected_images_path)
     filenames = [remove_path(f) for f in filenames]
-    hashes = [hash(f) for f in filenames]
+
+    hashes = [md5hash(f) for f in filenames]
 
     for o, p in zip(orig_names, pred_names):
         score = extract_score(p)

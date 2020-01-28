@@ -4,11 +4,10 @@ import os
 import keras
 import tensorflow as tf
 
-import keras.layers as layers
 from keras.models import load_model
-from keras.models import Model
 from keras.callbacks import ModelCheckpoint
 import matplotlib
+
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 
@@ -19,12 +18,10 @@ import logging as log
 import random
 from src.util.Arguments import anomaly_arguments, get_model_choice
 import src.util.Arguments as Arguments
-from keras import backend as K
-from keras import objectives
 from scipy.stats import norm
-from functools import reduce
 from PIL import Image
 from src.train.Models import autoencoder, conv_autoencoder, vae_autoencoder, vae_loss, get_dummy_loss
+import src.util.Filenames as Filenames
 
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 
@@ -37,6 +34,7 @@ def image_generator(path, max_x, max_y, color_mode="RGB"):
         i = i / 255
         yield (i, i)
 
+
 def image_generator_with_filename(path, max_x, max_y, color_mode="RGB"):
     for i, f in load_images_generator_with_filename(path, color_mode=color_mode):
         i = resize_image(i, max_x, max_y)
@@ -44,7 +42,6 @@ def image_generator_with_filename(path, max_x, max_y, color_mode="RGB"):
         i = np.expand_dims(i, axis=0)
         i = i / 255
         yield (i, f)
-
 
 
 def centered_image_generator(path, max_x, max_y, color_mode="RGB"):
@@ -125,8 +122,6 @@ def load_model_and_predict(model_path, num_predictions, path, max_x, max_y, mode
     max_x = model.input_shape[1]
     max_y = model.input_shape[2]
 
-    # create_manifold(model, max_x)
-    # exit(1)
     images = list(image_generator_with_filename(path, max_x, max_y, color_mode=color_mode))
     random.shuffle(images)
     index = 0
@@ -135,15 +130,15 @@ def load_model_and_predict(model_path, num_predictions, path, max_x, max_y, mode
     model_name = model_path.split('.')[0]
     save_dir = Files.mkdir(f'./predictions/{model_name}')
     for i, filename in images:  # centered_image_generator(path, max_x, max_y):
-        target = i
+        hashed = Filenames.md5hash(filename)
         pred = model.predict(i)
-        evaluate = model.evaluate(i, target)
+        evaluate = model.evaluate(i, i)
         for ii in i:
             if color_mode == 'HSV':
                 ii = Image.fromarray((ii * 255).astype(np.uint8), 'HSV')
                 ii = ii.convert("RGB")
                 ii = np.array(ii)
-            plt.imsave(str(save_dir / f'orig_{model_path}_{hash(filename)}_{index}.png'), ii)
+            plt.imsave(str(save_dir / f'orig_{model_path}_{hashed}_{index}.png'), ii)
 
         if type(evaluate) is list:
             evaluate = evaluate[0]
@@ -154,35 +149,11 @@ def load_model_and_predict(model_path, num_predictions, path, max_x, max_y, mode
                 p = Image.fromarray((p * 255).astype(np.uint8), 'HSV')
                 p = p.convert('RGB')
                 p = np.array(p)
-            plt.imsave(str(save_dir / f'pred_{model_path}_{index}_{hash(filename)}_{str(evaluate)}.png'), p, vmin=0, vmax=1)
+            plt.imsave(str(save_dir / f'pred_{model_path}_{index}_{hashed}_{str(evaluate)}.png'), p, vmin=0, vmax=1)
 
         index += 1
         if index == num_predictions:
             break
-
-
-def create_manifold(generator, max_x):
-    n = 15  # figure with 15x15 digits
-    digit_size = max_x
-    figure = np.zeros((digit_size * n, digit_size * n))
-
-    grid_x = norm.ppf(np.linspace(0.05, 0.95, n))
-    grid_y = norm.ppf(np.linspace(0.05, 0.95, n))
-
-    for i, yi in enumerate(grid_x):
-        for j, xi in enumerate(grid_y):
-            z_sample = np.array([[xi, yi]])
-            print(z_sample)
-            z_sample = z_sample[0].reshape(digit_size, digit_size)
-            x_decoded = generator.predict(z_sample)
-            digit = x_decoded[0].reshape(digit_size, digit_size)
-            figure[i * digit_size: (i + 1) * digit_size,
-            j * digit_size: (j + 1) * digit_size] = digit
-
-    plt.figure(figsize=(10, 10))
-    plt.imsave('sign_manifold.png', figure)
-    plt.imshow(figure, cmap='Greys_r')
-    plt.show()
 
 
 if __name__ == '__main__':

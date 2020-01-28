@@ -13,7 +13,8 @@ import src.util.ImageLoader as ImageLoader
 import matplotlib.pyplot as plt
 from pathlib import Path
 from skimage.transform import resize
-import src.analysis.PostProcessor
+from src.util.Filenames import remove_path, extract_score, extract_model_name
+from src.analysis.PostProcessor import remove_from_folder
 
 
 def order_sorter():
@@ -26,10 +27,6 @@ def score_sorter():
 
 def indexer(to_index_from: []):
     return lambda x: to_index_from.index(x)
-
-
-def remove_path(name: str):
-    return name.split('/')[-1]
 
 
 def order(name: str):
@@ -106,20 +103,6 @@ def load_and_preprocess(path: str, autoremove_missing_files: bool = False, num_f
     return originals, orig_names, predictions, pred_names
 
 
-def extract_model_name(name):
-    s = name.split('.')[0].split('_')
-    return '_'.join(s[1:])
-
-
-def extract_score(pred):
-    split = pred.split('_')
-    n = split[-1].split('.')
-    return float('.'.join(n[:2]))
-
-def extract_hash(orig_name):
-
-    return int(orig_name.split('_')[-2])
-
 def sort_by_score(originals, orig_names, predictions, pred_names, highest_first=True):
     sorted_predictions, sorted_pred_names = arrange_files(predictions, pred_names, score_sorter())
     sorted_originals, sorted_orig_names = arrange_files(originals, orig_names, order_sorter())
@@ -187,8 +170,8 @@ def create_score_plot(originals, predictions, orig_names, pred_names, save_path,
         ab = AnnotationBbox(OffsetImage(o_im if not show_originals else im), (i, p_score), frameon=False)
         ax.add_artist(ab)
     plt.hlines(xmax=len(originals), xmin=0, y=avg, colors="red", label="Average")
-    plt.hlines(xmax=len(originals), xmin=0, y=avg+std, colors="blue", label="Limit")
-    plt.hlines(xmax=len(originals), xmin=0, y=avg-std, colors="blue", label="Limit")
+    plt.hlines(xmax=len(originals), xmin=0, y=avg + std, colors="blue", label="Limit")
+    plt.hlines(xmax=len(originals), xmin=0, y=avg - std, colors="blue", label="Limit")
     plt.savefig(f'{save_path}/ScorePlot.png')
 
 
@@ -196,21 +179,6 @@ def create_dir_for_images(path: str, image_names: [str]) -> Path:
     model_name = extract_model_name(image_names[0])
     p = Path(path) / model_name
     return Files.makedir_else_cleardir(p)
-
-
-"""
-There is probably some simple formula for this instead.
-p(n)
-  | \           /
-  |  \         /
-  |   \       /
-  |    \_____/
-  |______________  n
-"""
-
-
-def p(n):
-    return n ** 2
 
 
 def probability(n):
@@ -296,10 +264,10 @@ if __name__ == '__main__':
             std=stddev
         )
     if args.detected_dir:
-        src.analysis.PostProcessor.remove_from_folder(
+        remove_from_folder(
             orig_names=orig_names,
             pred_names=pred_names,
             detected_images_path=args.detected_dir,
-            limit=average+stddev,
+            limit=average + stddev,
             create_backup=args.backup
         )
