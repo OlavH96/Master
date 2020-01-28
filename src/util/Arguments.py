@@ -92,6 +92,14 @@ def anomaly_arguments():
     )
 
     parser.add_argument(
+        '--validation-path',
+        dest='validation_path',
+        type=str,
+        default='',
+        help='Path to validation data'
+    )
+
+    parser.add_argument(
         '--steps',
         dest='steps',
         type=int,

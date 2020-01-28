@@ -50,7 +50,7 @@ def centered_image_generator(path, max_x, max_y, color_mode="RGB"):
             yield (i, o)
 
 
-def train_on_images(epochs, max_x, max_y, path, model_type, model_name, arg_steps, color_mode="RGB"):
+def train_on_images(epochs, max_x, max_y, path, model_type, model_name, arg_steps, validation_path, color_mode="RGB"):
     sess = tf.Session()
     keras.backend.set_session(sess)
 
@@ -82,12 +82,26 @@ def train_on_images(epochs, max_x, max_y, path, model_type, model_name, arg_step
     callbacks_list = [checkpoint]
 
     log.info('Fitting model...')
-    history = model.fit_generator(centered_image_generator(path, max_x, max_y, color_mode=color_mode), epochs=epochs, steps_per_epoch=steps,
-                                  callbacks=callbacks_list)
+    if validation_path:
+        history = model.fit_generator(generator=centered_image_generator(path, max_x, max_y, color_mode=color_mode),
+                                      validation_data=centered_image_generator(validation_path, max_x, max_y, color_mode=color_mode),
+                                      epochs=epochs,
+                                      steps_per_epoch=steps,
+                                      callbacks=callbacks_list)
+    else:
+        history = model.fit_generator(generator=centered_image_generator(path, max_x, max_y, color_mode=color_mode),
+                                      epochs=epochs,
+                                      steps_per_epoch=steps,
+                                      callbacks=callbacks_list)
+
     model.save(model_name)
     loss = history.history['loss']
     try:
         plt.plot(loss)
+        if validation_path:
+            val_loss = history.history['val_loss']
+            plt.plot(val_loss, color='g')
+        plt.title(model_name)
         plt.ylabel("Loss")
         plt.xlabel("Epoch")
         plt.savefig(f'training_loss_{model_name}.png')
@@ -172,7 +186,8 @@ if __name__ == '__main__':
             model_type=args.model_type,
             model_name=args.model,
             arg_steps=args.steps,
-            color_mode=args.color
+            color_mode=args.color,
+            validation_path=args.validation_path
         )
     if args.do_predict:
         load_model_and_predict(
