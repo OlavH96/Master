@@ -245,6 +245,14 @@ def analyser_arguments():
     )
 
     parser.add_argument(
+        '--purge-overfitted',
+        dest='purge_overfitted',
+        action='store_true',
+        default=False,
+        help='Purge images in --detected-dir, OR the backup dir if --backup, which have too low loss.',
+    )
+
+    parser.add_argument(
         '--backup',
         dest='backup',
         action='store_true',

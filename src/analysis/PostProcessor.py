@@ -21,9 +21,11 @@ def copy_files(path, newpath):
         )
 
 
-def do_create_backup(path):
+def do_create_backup(path, purge_overfitted=False):
     stripped = strip_path_modifier(path)
     new_path = stripped + '_backup'
+    if purge_overfitted:
+        new_path += '_no_overfitted'
     copy_files(path, new_path)
     return new_path
 
@@ -36,27 +38,31 @@ def do_remove(orig_name, hashed, filenames, hashes, path, do_delete=False):
         if do_delete:
             os.remove(os.path.join(path, f))
     except ValueError:
-        print("Could not find file", hashed, orig_name)
+        print("Could not find file", hashed, orig_name, filenames[0])
     else:
         print("Removed", orig_name, f, do_delete)
 
 
-def remove_from_folder(orig_names, pred_names, detected_images_path, limit, create_backup=True, purge=False):
+def remove_from_folder(orig_names, pred_names, detected_images_path, limit, limit_lower, create_backup=True, purge=False, purge_overfitted=False):
     if create_backup:
-        detected_images_path = do_create_backup(detected_images_path)
+        detected_images_path = do_create_backup(detected_images_path, purge_overfitted)
         print("Created backup in dir", detected_images_path)
-
+    print("path is", detected_images_path)
     filenames = glob.glob(detected_images_path)
     filenames = [remove_path(f) for f in filenames]
-
+    
     hashes = [md5hash(f) for f in filenames]
-
+    print("num files is", len(filenames))
+    print("num orig, pred is", len(orig_names), len(pred_names))
     for o, p in zip(orig_names, pred_names):
         score = extract_score(p)
         try:
             hashed = extract_hash(o)
         except:
             print("Could not extract hash", o)
+        else:
+            if score > limit and purge:
+                do_remove(o, hashed, filenames, hashes, detected_images_path, do_delete=purge)
+            if score < limit_lower and purge_overfitted:
+                do_remove(o, hashed, filenames, hashes, detected_images_path, do_delete=purge_overfitted)
 
-        if score > limit:
-            do_remove(o, hashed, filenames, hashes, detected_images_path, do_delete=purge)

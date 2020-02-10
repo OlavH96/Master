@@ -65,7 +65,7 @@ def train_on_images(epochs, max_x, max_y, path, model_type, model_name, arg_step
         model = autoencoder(shape, num_reductions=1)
     if model_type == get_model_choice(Arguments.CONV):
         # 4,2,64 decreasing, 4,2,16 increasing
-        model = conv_autoencoder(shape, num_reductions=4, filter_reduction_on=2, num_filters_start=16, increasing=True)
+        model = conv_autoencoder(shape, num_reductions=4, filter_reduction_on=2, num_filters_start=8, increasing=True)
     if model_type == get_model_choice(Arguments.VAE):
         model, log_var, mu = vae_autoencoder(shape)
         print(log_var, mu)
@@ -85,6 +85,7 @@ def train_on_images(epochs, max_x, max_y, path, model_type, model_name, arg_step
     if validation_path:
         history = model.fit_generator(generator=centered_image_generator(path, max_x, max_y, color_mode=color_mode),
                                       validation_data=centered_image_generator(validation_path, max_x, max_y, color_mode=color_mode),
+                                      validation_steps=100, 
                                       epochs=epochs,
                                       steps_per_epoch=steps,
                                       callbacks=callbacks_list)
@@ -142,7 +143,8 @@ def load_model_and_predict(model_path, num_predictions, path, max_x, max_y, mode
     print(f'Loaded {len(images)} images')
 
     model_name = model_path.split('.')[0]
-    save_dir = Files.mkdir(f'./predictions/{model_name}_{Filenames.remove_path(Filenames.strip_path_modifier(path))}')
+    save_dir = Files.makedir_else_cleardir(f'./predictions/{model_name}_{Filenames.remove_path(Filenames.strip_path_modifier(path))}')
+
     for i, filename in images:  # centered_image_generator(path, max_x, max_y):
         hashed = Filenames.md5hash(filename)
         pred = model.predict(i)

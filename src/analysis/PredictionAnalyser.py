@@ -175,9 +175,10 @@ def create_score_plot(originals, predictions, orig_names, pred_names, save_path,
     plt.savefig(f'{save_path}/ScorePlot.png')
 
 
-def create_dir_for_images(path: str, image_names: [str]) -> Path:
+def create_dir_for_images(path: str, image_names: [str], extra="") -> Path:
     model_name = extract_model_name(image_names[0])
-    p = Path(path) / model_name
+
+    p = Path(path) / ( model_name + extra )
     return Files.makedir_else_cleardir(p)
 
 
@@ -203,8 +204,19 @@ def probability(n):
     return out
 
 
-def do_plotting(originals, predictions, orig_names, pred_names, n, save_dir, avg, std):
-    save_path = create_dir_for_images(save_dir, orig_names)
+def do_plotting(originals, predictions, orig_names, pred_names, n, save_dir, avg, std, pred_dir=""):
+
+    from_dir = pred_dir.split('_')
+    extra = ""
+    for i, l in enumerate(from_dir[::-1]):
+        if l.isdigit(): 
+            break
+        if not i == 0:
+            l += '_'
+        extra = l + extra
+    extra = '_' + extra
+
+    save_path = create_dir_for_images(save_dir, orig_names, extra=extra)
     print("Saving images to ", save_path)
     plot_images(originals, predictions, orig_names, pred_names, save_path=save_path, n=n)
 
@@ -247,7 +259,7 @@ if __name__ == '__main__':
     originals, orig_names, predictions, pred_names = sort_by_score(originals, orig_names, predictions, pred_names, highest_first=True)
 
     scores = [extract_score(p) for p in pred_names]
-    print(scores)
+    print(scores[:10])
     average = np.average(scores)
     stddev = np.std(scores)
     limit = average + stddev
@@ -261,7 +273,8 @@ if __name__ == '__main__':
             n=50,
             save_dir=args.save_dir,
             avg=average,
-            std=stddev
+            std=stddev,
+            pred_dir=args.images_dir
         )
     if args.detected_dir:
         remove_from_folder(
@@ -269,6 +282,8 @@ if __name__ == '__main__':
             pred_names=pred_names,
             detected_images_path=args.detected_dir,
             limit=average + stddev,
+            limit_lower= average - stddev,
             create_backup=args.backup,
-            purge=args.purge
+            purge=args.purge,
+            purge_overfitted=args.purge_overfitted
         )
