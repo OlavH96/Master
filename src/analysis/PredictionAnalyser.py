@@ -220,33 +220,36 @@ def do_plotting(originals, predictions, orig_names, pred_names, n, save_dir, avg
     print("Saving images to ", save_path)
     plot_images(originals, predictions, orig_names, pred_names, save_path=save_path, n=n)
 
-    num_scored = 50
+    #r = sorted(list(np.random.choice(a=list(range(len(orig_names) - 2)), size=n, replace=False, p=probability(len(orig_names) - 2))))
+    #e_o = originals[0]
+    #e_p = predictions[0]
+    #e_o_n = orig_names[0]
+    #e_p_n = pred_names[0]
 
-    r = sorted(list(np.random.choice(a=list(range(len(orig_names) - 2)), size=num_scored, replace=False, p=probability(len(orig_names) - 2))))
-    e_o = originals[0]
-    e_p = predictions[0]
-    e_o_n = orig_names[0]
-    e_p_n = pred_names[0]
+    #e_o_b = originals[-1]
+    #e_p_b = predictions[-1]
+    #e_o_n_b = orig_names[-1]
+    #e_p_n_b = pred_names[-1]
 
-    e_o_b = originals[-1]
-    e_p_b = predictions[-1]
-    e_o_n_b = orig_names[-1]
-    e_p_n_b = pred_names[-1]
+    #originals = [originals[i] for i in r]
+    #orig_names = [orig_names[i] for i in r]
+    #predictions = [predictions[i] for i in r]
+    #pred_names = [pred_names[i] for i in r]
 
-    originals = [originals[i] for i in r]
-    orig_names = [orig_names[i] for i in r]
-    predictions = [predictions[i] for i in r]
-    pred_names = [pred_names[i] for i in r]
+    #originals.insert(0, e_o)
+    #orig_names.insert(0, e_o_n)
+    #predictions.insert(0, e_p)
+    #pred_names.insert(0, e_p_n)
 
-    originals.insert(0, e_o)
-    orig_names.insert(0, e_o_n)
-    predictions.insert(0, e_p)
-    pred_names.insert(0, e_p_n)
-
-    originals.append(e_o_b)
-    orig_names.append(e_o_n_b)
-    predictions.append(e_p_b)
-    pred_names.append(e_p_n_b)
+    #originals.append(e_o_b)
+    #orig_names.append(e_o_n_b)
+    #predictions.append(e_p_b)
+    #pred_names.append(e_p_n_b)
+    
+    originals = originals[:n//2] + originals[-(n//2):]
+    orig_names = orig_names[:n//2] + orig_names[-(n//2):]
+    predictions = predictions[:n//2] + predictions[-(n//2):]
+    pred_names = pred_names[:n//2] + pred_names[-(n//2):]
 
     create_score_plot(originals, predictions, orig_names, pred_names, save_path, avg, std, show_originals=True)
 
@@ -270,7 +273,7 @@ if __name__ == '__main__':
     if args.create_plots:
         do_plotting(
             originals, predictions, orig_names, pred_names,
-            n=50,
+            n=args.plot_num,
             save_dir=args.save_dir,
             avg=average,
             std=stddev,

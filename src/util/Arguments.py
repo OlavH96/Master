@@ -300,4 +300,12 @@ def analyser_arguments():
         help='Number of analyzed images'
     )
 
+    parser.add_argument(
+        '--plot-num',
+        dest='plot_num',
+        type=int,
+        default=50,
+        help='Number of images to plot'
+    )
+
     return parser.parse_args()
