@@ -4,6 +4,7 @@ FC = "fc"
 VAE = "vae"
 CONV = "conv"
 FCS = "fc-s"
+FCSS = "fc-ss"
 
 
 def model_choices_dict():
@@ -12,6 +13,7 @@ def model_choices_dict():
         CONV: 'conv',
         FC: 'fully-connected',
         FCS: 'fully-connected-small',
+        FCSS: 'fully-connected-smaller'
     }
 
 

@@ -119,6 +119,7 @@ def sort_by_score(originals, orig_names, predictions, pred_names, highest_first=
 
 def plot_images(originals, predictions, orig_names, pred_names, save_path, n=100, save_by_order=True):
     print(f"Plotting {len(orig_names)} images")
+
     for i, (o, p, o_name, p_name) in enumerate(zip(originals, predictions, orig_names, pred_names)):
         p_score = extract_score(p_name)
         p_index = order(p_name)
@@ -147,6 +148,8 @@ def create_score_plot(originals, predictions, orig_names, pred_names, save_path,
     ax.plot(scores, linewidth=5)
     max_score = max(scores)
 
+    not_over_limit = len(originals) < 100
+
     for i, (o, p, o_name, p_name) in enumerate(zip(originals, predictions, orig_names, pred_names)):
         p_score = extract_score(p_name)
 
@@ -157,7 +160,7 @@ def create_score_plot(originals, predictions, orig_names, pred_names, save_path,
         o_im = resize(o_im, new_size)
 
         # https://stackoverflow.com/questions/22566284/matplotlib-how-to-plot-images-instead-of-points/53851017
-        if show_originals:
+        if show_originals and not_over_limit:
             if i % 2 != 0:
                 ab = AnnotationBbox(OffsetImage(o_im), (i, max_score), frameon=False)
                 ax.add_artist(ab)
@@ -245,11 +248,11 @@ def do_plotting(originals, predictions, orig_names, pred_names, n, save_dir, avg
     #orig_names.append(e_o_n_b)
     #predictions.append(e_p_b)
     #pred_names.append(e_p_n_b)
-    
-    originals = originals[:n//2] + originals[-(n//2):]
-    orig_names = orig_names[:n//2] + orig_names[-(n//2):]
-    predictions = predictions[:n//2] + predictions[-(n//2):]
-    pred_names = pred_names[:n//2] + pred_names[-(n//2):]
+    if n > 50 and n < len(originals)//2:
+        originals = originals[:n//2] + originals[-(n//2):]
+        orig_names = orig_names[:n//2] + orig_names[-(n//2):]
+        predictions = predictions[:n//2] + predictions[-(n//2):]
+        pred_names = pred_names[:n//2] + pred_names[-(n//2):]
 
     create_score_plot(originals, predictions, orig_names, pred_names, save_path, avg, std, show_originals=True)
 

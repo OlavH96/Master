@@ -8,6 +8,28 @@ from keras import objectives
 from functools import reduce
 from keras.losses import mse, binary_crossentropy
 
+import src.util.Arguments as Arguments
+
+def from_argument_choice(choice: str, shape):
+    
+    if choice == Arguments.get_model_choice(Arguments.FC):
+        model = autoencoder(shape, num_reductions=1)
+
+    if choice == Arguments.get_model_choice(Arguments.CONV):
+        # 4,2,64 decreasing, 4,2,16 increasing
+        model = conv_autoencoder(shape, num_reductions=4, filter_reduction_on=2, num_filters_start=8, increasing=True)
+
+    if choice == Arguments.get_model_choice(Arguments.VAE):
+        model, log_var, mu = vae_autoencoder(shape)
+        print(log_var, mu)
+
+    if choice == Arguments.get_model_choice(Arguments.FCS):
+        model = autoencoder(shape, num_reductions=3)
+
+    if choice == Arguments.get_model_choice(Arguments.FCSS):
+        model = autoencoder(shape, num_reductions=6)
+
+    return model
 
 # https://medium.com/analytics-vidhya/building-a-convolutional-autoencoder-using-keras-using-conv2dtranspose-ca403c8d144e
 def conv_autoencoder(io_shape, num_reductions=5, filter_reduction_on=2, num_filters_start=32, increasing=True):

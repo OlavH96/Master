@@ -20,7 +20,8 @@ from src.util.Arguments import anomaly_arguments, get_model_choice
 import src.util.Arguments as Arguments
 from scipy.stats import norm
 from PIL import Image
-from src.train.Models import autoencoder, conv_autoencoder, vae_autoencoder, vae_loss, get_dummy_loss
+from src.train.Models import autoencoder, conv_autoencoder, vae_autoencoder, vae_loss, get_dummy_loss, from_argument_choice
+import src.train.Models as Models
 import src.util.Filenames as Filenames
 
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
@@ -61,16 +62,7 @@ def train_on_images(epochs, max_x, max_y, path, model_type, model_name, arg_step
 
     epochs = epochs
     shape = (max_y, max_x, 3)
-    if model_type == get_model_choice(Arguments.FC):
-        model = autoencoder(shape, num_reductions=1)
-    if model_type == get_model_choice(Arguments.CONV):
-        # 4,2,64 decreasing, 4,2,16 increasing
-        model = conv_autoencoder(shape, num_reductions=4, filter_reduction_on=2, num_filters_start=8, increasing=True)
-    if model_type == get_model_choice(Arguments.VAE):
-        model, log_var, mu = vae_autoencoder(shape)
-        print(log_var, mu)
-    if model_type == get_model_choice(Arguments.FCS):
-        model = autoencoder(shape, num_reductions=3)
+    model = Models.from_argument_choice(model_type, shape)
 
     steps = len(glob.glob(path))
     if arg_steps != 0:
