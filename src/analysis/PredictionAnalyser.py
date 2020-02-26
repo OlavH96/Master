@@ -15,7 +15,7 @@ from pathlib import Path
 from skimage.transform import resize
 from src.util.Filenames import remove_path, extract_score, extract_model_name
 from src.analysis.PostProcessor import remove_from_folder
-
+from sklearn.metrics import roc_auc_score
 
 def order_sorter():
     return lambda x: order(x[-1])
@@ -140,7 +140,7 @@ def plot_images(originals, predictions, orig_names, pred_names, save_path, n=100
             return
 
 
-def create_score_plot(originals, predictions, orig_names, pred_names, save_path, avg, std, show_originals=False):
+def create_score_plot(originals, predictions, orig_names, pred_names, save_path, avg, std, show_originals=False, title=""):
     fig, ax = plt.subplots(figsize=(19.2, 10.8))
     plt.xlabel("Image Number")
     plt.ylabel("Score")
@@ -175,13 +175,14 @@ def create_score_plot(originals, predictions, orig_names, pred_names, save_path,
     plt.hlines(xmax=len(originals), xmin=0, y=avg, colors="red", label="Average")
     plt.hlines(xmax=len(originals), xmin=0, y=avg + std, colors="blue", label="Limit")
     plt.hlines(xmax=len(originals), xmin=0, y=avg - std, colors="blue", label="Limit")
+    plt.title(title)
     plt.savefig(f'{save_path}/ScorePlot.png')
 
 
 def create_dir_for_images(path: str, image_names: [str], extra="") -> Path:
     model_name = extract_model_name(image_names[0])
 
-    p = Path(path) / ( model_name + extra )
+    p = Path(path) / (model_name + extra)
     return Files.makedir_else_cleardir(p)
 
 
@@ -207,12 +208,11 @@ def probability(n):
     return out
 
 
-def do_plotting(originals, predictions, orig_names, pred_names, n, save_dir, avg, std, pred_dir=""):
-
+def do_plotting(originals, predictions, orig_names, pred_names, n, save_dir, avg, std, pred_dir="", title=""):
     from_dir = pred_dir.split('_')
     extra = ""
     for i, l in enumerate(from_dir[::-1]):
-        if l.isdigit(): 
+        if l.isdigit():
             break
         if not i == 0:
             l += '_'
@@ -223,39 +223,46 @@ def do_plotting(originals, predictions, orig_names, pred_names, n, save_dir, avg
     print("Saving images to ", save_path)
     plot_images(originals, predictions, orig_names, pred_names, save_path=save_path, n=n)
 
-    #r = sorted(list(np.random.choice(a=list(range(len(orig_names) - 2)), size=n, replace=False, p=probability(len(orig_names) - 2))))
-    #e_o = originals[0]
-    #e_p = predictions[0]
-    #e_o_n = orig_names[0]
-    #e_p_n = pred_names[0]
+    # r = sorted(list(np.random.choice(a=list(range(len(orig_names) - 2)), size=n, replace=False, p=probability(len(orig_names) - 2))))
+    # e_o = originals[0]
+    # e_p = predictions[0]
+    # e_o_n = orig_names[0]
+    # e_p_n = pred_names[0]
 
-    #e_o_b = originals[-1]
-    #e_p_b = predictions[-1]
-    #e_o_n_b = orig_names[-1]
-    #e_p_n_b = pred_names[-1]
+    # e_o_b = originals[-1]
+    # e_p_b = predictions[-1]
+    # e_o_n_b = orig_names[-1]
+    # e_p_n_b = pred_names[-1]
 
-    #originals = [originals[i] for i in r]
-    #orig_names = [orig_names[i] for i in r]
-    #predictions = [predictions[i] for i in r]
-    #pred_names = [pred_names[i] for i in r]
+    # originals = [originals[i] for i in r]
+    # orig_names = [orig_names[i] for i in r]
+    # predictions = [predictions[i] for i in r]
+    # pred_names = [pred_names[i] for i in r]
 
-    #originals.insert(0, e_o)
-    #orig_names.insert(0, e_o_n)
-    #predictions.insert(0, e_p)
-    #pred_names.insert(0, e_p_n)
+    # originals.insert(0, e_o)
+    # orig_names.insert(0, e_o_n)
+    # predictions.insert(0, e_p)
+    # pred_names.insert(0, e_p_n)
 
-    #originals.append(e_o_b)
-    #orig_names.append(e_o_n_b)
-    #predictions.append(e_p_b)
-    #pred_names.append(e_p_n_b)
-    if n > 50 and n < len(originals)//2:
-        originals = originals[:n//2] + originals[-(n//2):]
-        orig_names = orig_names[:n//2] + orig_names[-(n//2):]
-        predictions = predictions[:n//2] + predictions[-(n//2):]
-        pred_names = pred_names[:n//2] + pred_names[-(n//2):]
+    # originals.append(e_o_b)
+    # orig_names.append(e_o_n_b)
+    # predictions.append(e_p_b)
+    # pred_names.append(e_p_n_b)
+    if n > 50 and n < len(originals) // 2:
+        originals = originals[:n // 2] + originals[-(n // 2):]
+        orig_names = orig_names[:n // 2] + orig_names[-(n // 2):]
+        predictions = predictions[:n // 2] + predictions[-(n // 2):]
+        pred_names = pred_names[:n // 2] + pred_names[-(n // 2):]
 
-    create_score_plot(originals, predictions, orig_names, pred_names, save_path, avg, std, show_originals=True)
+    create_score_plot(originals, predictions, orig_names, pred_names, save_path, avg, std, show_originals=True, title=title)
 
+
+
+def do_scoring(orig, pred):
+
+    res = roc_auc_score(orig, pred)
+    print("ROCAUC", res)
+    return res
 
 if __name__ == '__main__':
     args = Arguments.analyser_arguments()
@@ -273,6 +280,15 @@ if __name__ == '__main__':
     print("stddev", stddev)
     print("limit", limit)
 
+    print(orig_names)
+    y_true = [1 for i in range(len(pred_names))] # Extract anomaly/non nonanomalies
+
+    y_score = np.array(scores)
+    #y_score = y_score / sum(y_score)
+    print(y_score)
+    score = do_scoring(y_true, y_score)
+    exit(1)
+
     if args.create_plots:
         do_plotting(
             originals, predictions, orig_names, pred_names,
@@ -280,7 +296,8 @@ if __name__ == '__main__':
             save_dir=args.save_dir,
             avg=average,
             std=stddev,
-            pred_dir=args.images_dir
+            pred_dir=args.images_dir,
+            title=f'ROC Score {score}'
         )
     if args.detected_dir:
         remove_from_folder(
@@ -288,7 +305,7 @@ if __name__ == '__main__':
             pred_names=pred_names,
             detected_images_path=args.detected_dir,
             limit=average + stddev,
-            limit_lower= average - stddev,
+            limit_lower=average - stddev,
             create_backup=args.backup,
             purge=args.purge,
             purge_overfitted=args.purge_overfitted
