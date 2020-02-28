@@ -264,6 +264,9 @@ def do_scoring(orig, pred):
     print("ROCAUC", res)
     return res
 
+def extract_true(names):
+    return [1 if n.split('_')[1] == "anomaly" else 0 for n in names]
+
 if __name__ == '__main__':
     args = Arguments.analyser_arguments()
     print(args)
@@ -280,14 +283,9 @@ if __name__ == '__main__':
     print("stddev", stddev)
     print("limit", limit)
 
-    print(orig_names)
-    y_true = [1 for i in range(len(pred_names))] # Extract anomaly/non nonanomalies
-
+    y_true = extract_true(pred_names)
     y_score = np.array(scores)
-    #y_score = y_score / sum(y_score)
-    print(y_score)
     score = do_scoring(y_true, y_score)
-    exit(1)
 
     if args.create_plots:
         do_plotting(
@@ -297,7 +295,7 @@ if __name__ == '__main__':
             avg=average,
             std=stddev,
             pred_dir=args.images_dir,
-            title=f'ROC Score {score}'
+            title=f'ROC Score {score}' if args.known else f"Average score {average}, stddev {stddev}"
         )
     if args.detected_dir:
         remove_from_folder(

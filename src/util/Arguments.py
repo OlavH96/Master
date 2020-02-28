@@ -295,6 +295,14 @@ def analyser_arguments():
     )
 
     parser.add_argument(
+        '--known',
+        dest='known',
+        action='store_true',
+        default=False,
+        help='--images-dir arg is labeled data.'
+    )
+
+    parser.add_argument(
         '--num',
         dest='num',
         type=int,
