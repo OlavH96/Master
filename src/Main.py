@@ -139,6 +139,8 @@ def load_model_and_predict(model_path, num_predictions, path, max_x, max_y, mode
 
     for i, filename in images:  # centered_image_generator(path, max_x, max_y):
         hashed = Filenames.md5hash(filename)
+        anomaly = "anomaly" in filename
+        extra = "_anomaly_" if anomaly else "_normal_"
         pred = model.predict(i)
         evaluate = model.evaluate(i, i)
         for ii in i:
@@ -146,7 +148,7 @@ def load_model_and_predict(model_path, num_predictions, path, max_x, max_y, mode
                 ii = Image.fromarray((ii * 255).astype(np.uint8), 'HSV')
                 ii = ii.convert("RGB")
                 ii = np.array(ii)
-            plt.imsave(str(save_dir / f'orig_{model_path}_{hashed}_{index}.png'), ii)
+            plt.imsave(str(save_dir / f'orig{extra}{hashed}_{index}.png'), ii)
 
         if type(evaluate) is list:
             evaluate = evaluate[0]
@@ -157,7 +159,7 @@ def load_model_and_predict(model_path, num_predictions, path, max_x, max_y, mode
                 p = Image.fromarray((p * 255).astype(np.uint8), 'HSV')
                 p = p.convert('RGB')
                 p = np.array(p)
-            plt.imsave(str(save_dir / f'pred_{model_path}_{index}_{hashed}_{str(evaluate)}.png'), p, vmin=0, vmax=1)
+            plt.imsave(str(save_dir / f'pred{extra}{index}_{hashed}_{str(evaluate)}.png'), p, vmin=0, vmax=1)
 
         index += 1
         if index == num_predictions:
