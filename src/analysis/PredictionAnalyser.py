@@ -178,8 +178,8 @@ def create_score_plot(originals, predictions, orig_names, pred_names, save_path,
     plt.savefig(f'{save_path}/ScorePlot.png')
 
 
-def create_dir_for_images(path: str, image_names: [str], extra="") -> Path:
-    model_name = extract_model_name(image_names[0])
+def create_dir_for_images(dirname:str, path: str, image_names: [str], extra="") -> Path:
+    model_name = dirname 
 
     p = Path(path) / ( model_name + extra )
     return Files.makedir_else_cleardir(p)
@@ -218,8 +218,8 @@ def do_plotting(originals, predictions, orig_names, pred_names, n, save_dir, avg
             l += '_'
         extra = l + extra
     extra = '_' + extra
-
-    save_path = create_dir_for_images(save_dir, orig_names, extra=extra)
+    dirname = remove_path(pred_dir)
+    save_path = create_dir_for_images(dirname, save_dir, orig_names, extra=extra)
     print("Saving images to ", save_path)
     plot_images(originals, predictions, orig_names, pred_names, save_path=save_path, n=n)
 
