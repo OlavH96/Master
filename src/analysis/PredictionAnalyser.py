@@ -15,7 +15,8 @@ from pathlib import Path
 from skimage.transform import resize
 from src.util.Filenames import remove_path, extract_score, extract_model_name
 from src.analysis.PostProcessor import remove_from_folder
-from sklearn.metrics import roc_auc_score
+from sklearn.metrics import roc_auc_score, roc_curve
+
 
 def order_sorter():
     return lambda x: order(x[-1])
@@ -140,7 +141,7 @@ def plot_images(originals, predictions, orig_names, pred_names, save_path, n=100
             return
 
 
-def create_score_plot(originals, predictions, orig_names, pred_names, save_path, avg, std, show_originals=False, title=""):
+def create_score_plot(originals, predictions, orig_names, pred_names, save_path, avg, std, show_originals=False, title="", rocauc=None):
     fig, ax = plt.subplots(figsize=(19.2, 10.8))
     plt.xlabel("Image Number")
     plt.ylabel("Score")
@@ -172,15 +173,24 @@ def create_score_plot(originals, predictions, orig_names, pred_names, save_path,
 
         ab = AnnotationBbox(OffsetImage(o_im if not show_originals else im), (i, p_score), frameon=False)
         ax.add_artist(ab)
-    plt.hlines(xmax=len(originals), xmin=0, y=avg, colors="red", label="Average")
-    plt.hlines(xmax=len(originals), xmin=0, y=avg + std, colors="blue", label="Limit")
-    plt.hlines(xmax=len(originals), xmin=0, y=avg - std, colors="blue", label="Limit")
+    if rocauc:
+        fpr, tpr, thresholds = rocauc
+        for f, t, l in list(zip(fpr, tpr, thresholds))[2:-1:2]:
+            plt.hlines(xmax=len(originals), xmin=0, y=l, colors="red", label="Average")
+            f = '{:.2f}'.format(f)
+            t = '{:.2f}'.format(t)
+            plt.text(0, l, f"FPR {f}, TPR {t}", fontsize=12)
+
+    else:
+        plt.hlines(xmax=len(originals), xmin=0, y=avg, colors="red", label="Average")
+        plt.hlines(xmax=len(originals), xmin=0, y=avg + std, colors="blue", label="Limit")
+        plt.hlines(xmax=len(originals), xmin=0, y=avg - std, colors="blue", label="Limit")
     plt.title(title)
     plt.savefig(f'{save_path}/ScorePlot.png')
 
 
-def create_dir_for_images(dirname:str, path: str, image_names: [str], extra="") -> Path:
-    model_name = dirname 
+def create_dir_for_images(dirname: str, path: str, image_names: [str], extra="") -> Path:
+    model_name = dirname
 
     p = Path(path) / (model_name + extra)
     return Files.makedir_else_cleardir(p)
@@ -208,7 +218,7 @@ def probability(n):
     return out
 
 
-def do_plotting(originals, predictions, orig_names, pred_names, n, save_dir, avg, std, pred_dir="", title=""):
+def do_plotting(originals, predictions, orig_names, pred_names, n, save_dir, avg, std, pred_dir="", title="", rocauc=None):
     from_dir = pred_dir.split('_')
     extra = ""
     for i, l in enumerate(from_dir[::-1]):
@@ -254,18 +264,18 @@ def do_plotting(originals, predictions, orig_names, pred_names, n, save_dir, avg
         predictions = predictions[:n // 2] + predictions[-(n // 2):]
         pred_names = pred_names[:n // 2] + pred_names[-(n // 2):]
 
-    create_score_plot(originals, predictions, orig_names, pred_names, save_path, avg, std, show_originals=True, title=title)
-
+    create_score_plot(originals, predictions, orig_names, pred_names, save_path, avg, std, show_originals=True, title=title, rocauc=rocauc)
 
 
 def do_scoring(orig, pred):
-
     res = roc_auc_score(orig, pred)
     print("ROCAUC", res)
     return res
 
+
 def extract_true(names):
-    return [1 if n.split('_')[1] == "anomaly" else 0 for n in names]
+    return [1 if "anomaly" in n else 0 for n in names]
+
 
 if __name__ == '__main__':
     args = Arguments.analyser_arguments()
@@ -295,7 +305,8 @@ if __name__ == '__main__':
             avg=average,
             std=stddev,
             pred_dir=args.images_dir,
-            title=f'ROC Score {score}' if args.known else f"Average score {average}, stddev {stddev}"
+            title=f'ROC Score {"{:.2f}".format(score)}' if args.known else f"Average score {average}, stddev {stddev}",
+            rocauc=roc_curve(y_true, y_score)
         )
     if args.detected_dir:
         remove_from_folder(
