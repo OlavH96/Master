@@ -6,7 +6,7 @@ import matplotlib
 matplotlib.use('Agg')
 
 from matplotlib.offsetbox import AnnotationBbox, OffsetImage
-
+from matplotlib.patches import Rectangle
 import src.util.Files as Files
 import src.util.Arguments as Arguments
 import src.util.ImageLoader as ImageLoader
@@ -148,10 +148,11 @@ def create_score_plot(originals, predictions, orig_names, pred_names, save_path,
     scores = [extract_score(p) for p in pred_names]
     ax.plot(scores, linewidth=5)
     max_score = max(scores)
+    y_true = extract_true(pred_names)  # 1 if anomaly, 0 if not
 
     not_over_limit = len(originals) < 100
 
-    for i, (o, p, o_name, p_name) in enumerate(zip(originals, predictions, orig_names, pred_names)):
+    for i, (o, p, o_name, p_name, anomaly) in enumerate(zip(originals, predictions, orig_names, pred_names, y_true)):
         p_score = extract_score(p_name)
 
         im = np.array(p).astype(np.float) / 255
@@ -162,14 +163,17 @@ def create_score_plot(originals, predictions, orig_names, pred_names, save_path,
 
         # https://stackoverflow.com/questions/22566284/matplotlib-how-to-plot-images-instead-of-points/53851017
         if show_originals and not_over_limit:
-            if i % 2 != 0:
-                ab = AnnotationBbox(OffsetImage(o_im), (i, max_score), frameon=False)
-                ax.add_artist(ab)
-                plt.vlines(x=i, ymin=p_score, ymax=max_score, colors='grey')
+            top = i % 2 != 0
+            y = max_score if top else 0
+            ymin = p_score if top else 0
+            ymax = max_score if top else p_score
+
+            if rocauc:
+                ab = AnnotationBbox(OffsetImage(o_im), (i, y), frameon=True, bboxprops=dict(edgecolor='red' if anomaly else 'green'))
             else:
-                ab = AnnotationBbox(OffsetImage(o_im), (i, 0), frameon=False)
-                ax.add_artist(ab)
-                plt.vlines(x=i, ymin=0, ymax=p_score, colors='grey')
+                ab = AnnotationBbox(OffsetImage(o_im), (i, y), frameon=False)
+            ax.add_artist(ab)
+            plt.vlines(x=i, ymin=ymin, ymax=ymax, colors='grey')
 
         ab = AnnotationBbox(OffsetImage(o_im if not show_originals else im), (i, p_score), frameon=False)
         ax.add_artist(ab)
