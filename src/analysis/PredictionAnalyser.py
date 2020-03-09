@@ -221,6 +221,7 @@ def probability(n):
 def do_plotting(originals, predictions, orig_names, pred_names, n, save_dir, avg, std, pred_dir="", title="", rocauc=None):
     from_dir = pred_dir.split('_')
     extra = ""
+    # TODO: why did I add this?
     for i, l in enumerate(from_dir[::-1]):
         if l.isdigit():
             break
@@ -229,7 +230,7 @@ def do_plotting(originals, predictions, orig_names, pred_names, n, save_dir, avg
         extra = l + extra
     extra = '_' + extra
     dirname = remove_path(pred_dir)
-    save_path = create_dir_for_images(dirname, save_dir, orig_names, extra=extra)
+    save_path = create_dir_for_images(dirname, save_dir, orig_names, extra="")
     print("Saving images to ", save_path)
     plot_images(originals, predictions, orig_names, pred_names, save_path=save_path, n=n)
 
