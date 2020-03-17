@@ -17,7 +17,9 @@ def from_argument_choice(choice: str, shape):
 
     if choice == Arguments.get_model_choice(Arguments.CONV):
         # 4,2,64 decreasing, 4,2,16 increasing
-        model = conv_autoencoder(shape, num_reductions=4, filter_reduction_on=2, num_filters_start=8, increasing=True)
+        #model = conv_autoencoder(shape, num_reductions=4, filter_reduction_on=2, num_filters_start=8, increasing=True)
+        model = conv_autoencoder(shape, num_reductions=6, filter_reduction_on=1, num_filters_start=8, increasing=True)
+
 
     if choice == Arguments.get_model_choice(Arguments.VAE):
         model, log_var, mu = vae_autoencoder(shape)
@@ -135,15 +137,19 @@ def vae_loss(image_shape, log_var, mu):
         # recon = K.sum(K.binary_crossentropy(y_pred, y_true), axis=1)
         # kl = 0.5 * K.sum(K.exp(log_var) + K.square(mu) - 1. - log_var, axis=1)
         # return recon + kl
-
+        print(y_true.shape)
+        print(y_pred.shape)
         # https://github.com/keras-team/keras/blob/master/examples/variational_autoencoder.py
         reconstruction_loss = binary_crossentropy(y_true, y_pred)
-        reconstruction_loss *= (image_shape[0] * image_shape[1])
+        print("reconstruction_loss", reconstruction_loss)
+        #reconstruction_loss *= (image_shape[0] * image_shape[1])
         kl_loss = 1 + log_var - K.square(mu) - K.exp(log_var)
         kl_loss = K.sum(kl_loss, axis=-1)
         kl_loss *= -0.5
-        vae_loss = K.mean(reconstruction_loss + kl_loss)
-        return vae_loss
+        print("kl_loss",kl_loss)
+        loss = K.mean(reconstruction_loss + kl_loss)
+        print("loss",loss)
+        return loss
 
     return custom_vae_loss
 
@@ -172,8 +178,8 @@ def vae_autoencoder(image_shape):
 
     x_encoded = layers.Dense(n_hidden // 2, activation='relu')(x_encoded)
 
-    mu = layers.Dense(z_dim)(x_encoded)
-    log_var = layers.Dense(z_dim)(x_encoded)
+    mu = layers.Dense(z_dim, name='mu')(x_encoded)
+    log_var = layers.Dense(z_dim, name='log')(x_encoded)
 
     # sampling function
     def sampling(args):

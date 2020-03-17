@@ -109,18 +109,13 @@ def load_model_and_predict(model_path, num_predictions, path, max_x, max_y, mode
     # vae_loss(image_shape=(max_x, max_y, 3), log_var=0.5, mu=0.5) 
     im_shape = (max_x, max_y, 3)
     if model_type == get_model_choice(Arguments.VAE) and not model:
-        _, log_var, mu = vae_autoencoder(im_shape)
-        model = load_model(model_path, custom_objects={'custom_vae_loss': vae_loss(im_shape, log_var, mu)})
-        # model = load_model(model_path, custom_objects={'custom_vae_loss': lambda x,y: K.mean(np.array(0))})#vae_loss(im_shape, log_var, mu)})
 
-        max_x = model.input_shape[1]
-        max_y = model.input_shape[2]
-        # o = model.get_layer('dense_2')
-        # mu = model.get_layer('dense_3')(o)
-        # log_var = model.get_layer('dense_4')(o)
+        model = load_model(model_path, compile=False)#custom_objects={'custom_vae_loss': vae_loss(im_shape, log_var, mu)})
 
-        # model = load_model(model_path, custom_objects={'custom_vae_loss': get_dummy_loss((max_x, max_y, 3))})
-        # model = load_model(model_path, custom_objects={'custom_vae_loss': vae_loss((max_x, max_y, 3), mu, log_var)})
+        mu = model.get_layer('dense_3').output
+        log = model.get_layer('dense_4').output
+        
+        model.compile(optimizer='rmsprop', loss=vae_loss(im_shape, log_var, mu))
 
     if model_type != get_model_choice(Arguments.VAE) and not model:
         model = load_model(model_path)
@@ -142,14 +137,16 @@ def load_model_and_predict(model_path, num_predictions, path, max_x, max_y, mode
         anomaly = "anomaly" in filename
         extra = "_anomaly_" if anomaly else "_normal_"
         pred = model.predict(i)
-        evaluate = model.evaluate(i, i)
+        
         for ii in i:
             if color_mode == 'HSV':
                 ii = Image.fromarray((ii * 255).astype(np.uint8), 'HSV')
                 ii = ii.convert("RGB")
                 ii = np.array(ii)
             plt.imsave(str(save_dir / f'orig{extra}{hashed}_{index}.png'), ii)
+        plt.imsave(str(save_dir / f'pred_temp.png'), pred[0], vmin=0, vmax=1)
 
+        evaluate = model.evaluate(i, i)
         if type(evaluate) is list:
             evaluate = evaluate[0]
         print(index, evaluate)

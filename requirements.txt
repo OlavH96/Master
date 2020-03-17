@@ -53,3 +53,4 @@ Werkzeug==0.15.6
 wrapt==1.11.2
 tensorflow-gpu==1.15
 git+https://gitlab.com/vionice/roadai-python.git
+Keras==2.2.4
