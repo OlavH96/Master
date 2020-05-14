@@ -23,7 +23,9 @@ def from_argument_choice(choice: str, shape):
 
     if choice == Arguments.get_model_choice(Arguments.VAE):
         model, log_var, mu = vae_autoencoder(shape)
-        print(log_var, mu)
+
+    if choice == Arguments.get_model_choice(Arguments.CONVVAE):
+        model, encoder, decoder = conv_vae(shape)
 
     if choice == Arguments.get_model_choice(Arguments.FCS):
         model = autoencoder(shape, num_reductions=3)
@@ -106,7 +108,7 @@ def autoencoder(image_shape, num_reductions=1):
         x = layers.Dense(current_size, activation='relu', name=f'decoder_{_}')(x)
         current_size *= 2
 
-    outputs = layers.Dense(total_pixels, activation='sigmoid', name='reconstructed')(x)
+    outputs = layers.Dense(total_pixels, activation='relu', name='reconstructed')(x) #sigmoid
     outputs = layers.Reshape(image_shape)(outputs)
 
     model = keras.Model(inputs=inputs, outputs=outputs)
@@ -124,32 +126,16 @@ def autoencoder(image_shape, num_reductions=1):
 
 
 # https://github.com/keras-team/keras/blob/master/examples/variational_autoencoder.py
+# log var = sigma, standardavvik, mu = mean
 def vae_loss(image_shape, log_var, mu):
     def custom_vae_loss(y_true, y_pred):
-        # print("VAE Loss", y_true.shape, y_pred.shape, log_var, mu)
-        # xent_loss = y_true.shape[1] * objectives.binary_crossentropy(K.flatten(y_true), K.flatten(y_pred))
-        # #xent_loss = objectives.binary_crossentropy(K.flatten(y_true), K.flatten(y_pred))
-        # kl_loss = 0.5 * K.sum(K.square(mu) + K.exp(log_var) - log_var - 1, axis = -1) 
-        # #kl_loss = - 0.5 * K.sum(1 + log_var - K.square(mu) - K.exp(log_var), axis=-1)
-        # vae_loss = xent_loss + kl_loss
-        # return vae_loss
 
-        # recon = K.sum(K.binary_crossentropy(y_pred, y_true), axis=1)
-        # kl = 0.5 * K.sum(K.exp(log_var) + K.square(mu) - 1. - log_var, axis=1)
-        # return recon + kl
-        print(y_true.shape)
-        print(y_pred.shape)
         # https://github.com/keras-team/keras/blob/master/examples/variational_autoencoder.py
-        reconstruction_loss = binary_crossentropy(y_true, y_pred)
-        print("reconstruction_loss", reconstruction_loss)
-        #reconstruction_loss *= (image_shape[0] * image_shape[1])
-        kl_loss = 1 + log_var - K.square(mu) - K.exp(log_var)
-        kl_loss = K.sum(kl_loss, axis=-1)
-        kl_loss *= -0.5
-        print("kl_loss",kl_loss)
-        loss = K.mean(reconstruction_loss + kl_loss)
-        print("loss",loss)
-        return loss
+        #xent_loss = objectives.binary_crossentropy(y_true, y_pred)
+        xent_loss = objectives.mse(y_true, y_pred)
+        kl_loss = - 0.5 * K.mean(1 + log_var - K.square(mu) - K.exp(log_var), axis=-1)
+        return K.mean(xent_loss + kl_loss)
+
 
     return custom_vae_loss
 
@@ -167,7 +153,7 @@ def vae_autoencoder(image_shape):
     # network parameters
     image_shape_flat = reduce(lambda x, y: x * y, image_shape)
     batch_size = 1
-    n_hidden = 512
+    n_hidden = 512 # 512
     z_dim = 2
     print(image_shape)
     # encoder
@@ -192,27 +178,63 @@ def vae_autoencoder(image_shape):
     # decoder
     z_decoded = layers.Dense(n_hidden // 2, activation='relu')(z)
     z_decoded = layers.Dense(n_hidden, activation='relu')(z_decoded)
-    y = layers.Dense(image_shape_flat, activation='sigmoid')(z_decoded)
+    y = layers.Dense(image_shape_flat, activation='relu')(z_decoded)
     outputs = layers.Reshape(image_shape)(y)
-
-    # loss
-    # reconstruction_loss = objectives.binary_crossentropy(x, y) * image_shape_flat
-    # kl_loss = 0.5 * K.sum(K.square(mu) + K.exp(log_var) - log_var - 1, axis = -1)
-    # vae_loss = reconstruction_loss + kl_loss
-
-    # def my_vae_loss(y_true, y_pred):
-    #    print("VAE Loss", y_true.shape, y_pred.shape)
-    #    xent_loss = image_shape[0]* image_shape[1]* objectives.binary_crossentropy(K.flatten(y_true), K.flatten(y_pred))
-    #    kl_loss = - 0.5 * K.sum(1 + log_var - K.square(mu) - K.exp(log_var), axis=-1)
-    #    vae_loss = K.mean(xent_loss + kl_loss)
-    #    return vae_loss
 
     # build model
     vae = Model(inputs, outputs)
     # vae.add_loss(vae_loss)
-    vae.compile(optimizer='rmsprop', loss=vae_loss(image_shape, log_var, mu))
+    customAdam = keras.optimizers.Adam(lr=0.0001)
+    vae.compile(optimizer=customAdam, loss=vae_loss(image_shape, log_var, mu))
     vae.summary()
     return vae, log_var, mu
+
+def conv_vae(image_shape):
+    verbosity = 1
+    latent_dim = 2
+    num_channels = 3
+
+    i       = layers.Input(shape=image_shape, name='encoder_input')
+    cx      = layers.Conv2D(filters=8, kernel_size=3, strides=2, padding='same', activation='relu')(i)
+    cx      = layers.BatchNormalization()(cx)
+    cx      = layers.Conv2D(filters=16, kernel_size=3, strides=2, padding='same', activation='relu')(cx)
+    cx      = layers.BatchNormalization()(cx)
+    x       = layers.Flatten()(cx)
+    x       = layers.Dense(20, activation='relu')(x)
+    x       = layers.BatchNormalization()(x)
+    mu      = layers.Dense(latent_dim, name='mu')(x) # latent mu
+    sigma   = layers.Dense(latent_dim, name='log')(x) # latent sigma
+    conv_shape = K.int_shape(cx)
+
+    def sample_z(args):
+        mu, sigma = args
+        batch     = K.shape(mu)[0]
+        dim       = K.int_shape(mu)[1]
+        eps       = K.random_normal(shape=(batch, dim))
+        return mu + K.exp(sigma / 2) * eps
+
+    z       = layers.Lambda(sample_z, output_shape=(latent_dim, ), name='z')([mu, sigma])
+    encoder = Model(i, [mu, sigma, z], name='encoder')
+    encoder.summary()
+    
+    d_i   = layers.Input(shape=(latent_dim, ), name='decoder_input')
+    x     = layers.Dense(conv_shape[1] * conv_shape[2] * conv_shape[3], activation='relu')(d_i)
+    x     = layers.BatchNormalization()(x)
+    x     = layers.Reshape((conv_shape[1], conv_shape[2], conv_shape[3]))(x)
+    cx    = layers.Conv2DTranspose(filters=16, kernel_size=3, strides=2, padding='same', activation='relu')(x)
+    cx    = layers.BatchNormalization()(cx)
+    cx    = layers.Conv2DTranspose(filters=8, kernel_size=3, strides=2, padding='same',  activation='relu')(cx)
+    cx    = layers.BatchNormalization()(cx)
+    o     = layers.Conv2DTranspose(filters=num_channels, kernel_size=3, activation='sigmoid', padding='same', name='decoder_output')(cx)
+    decoder = Model(d_i, o, name='decoder')
+    decoder.summary()
+    
+    vae_outputs = decoder(encoder(i)[2])
+    vae         = Model(i, vae_outputs, name='vae')
+    vae.summary()
+    vae.compile(optimizer='adam', loss=vae_loss(image_shape, mu, sigma))
+    return vae, encoder, decoder
+    
 
 
 if __name__ == '__main__':

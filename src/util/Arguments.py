@@ -2,6 +2,7 @@ import argparse
 
 FC = "fc"
 VAE = "vae"
+CONVVAE = "conv-vae"
 CONV = "conv"
 FCS = "fc-s"
 FCSS = "fc-ss"
@@ -10,6 +11,7 @@ FCSS = "fc-ss"
 def model_choices_dict():
     return {
         VAE: 'vae',
+        CONVVAE: 'conv-vae',
         CONV: 'conv',
         FC: 'fully-connected',
         FCS: 'fully-connected-small',
@@ -102,6 +104,14 @@ def anomaly_arguments():
     )
 
     parser.add_argument(
+        '--predict-path',
+        dest='pred_path',
+        type=str,
+        default=None,
+        help='Path to predict data, if different from train and validation'
+    )
+
+    parser.add_argument(
         '--steps',
         dest='steps',
         type=int,
@@ -126,6 +136,7 @@ def anomaly_arguments():
         default='RGB',
         help='Color mode for loaded images.'
     )
+    
 
     return parser.parse_args()
 

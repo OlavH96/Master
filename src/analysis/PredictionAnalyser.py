@@ -191,6 +191,7 @@ def create_score_plot(originals, predictions, orig_names, pred_names, save_path,
         plt.hlines(xmax=len(originals), xmin=0, y=avg - std, colors="blue", label="Limit")
     plt.title(title)
     plt.savefig(f'{save_path}/ScorePlot.png')
+    plt.close()
 
 
 def create_dir_for_images(dirname: str, path: str, image_names: [str], extra="") -> Path:
@@ -222,7 +223,7 @@ def probability(n):
     return out
 
 
-def do_plotting(originals, predictions, orig_names, pred_names, n, save_dir, avg, std, pred_dir="", title="", rocauc=None):
+def do_plotting(originals, predictions, orig_names, pred_names, n, save_dir, avg, std, pred_dir="", title="", rocauc=None, y_true=None, y_probs=None):
     from_dir = pred_dir.split('_')
     extra = ""
     # TODO: why did I add this?
@@ -270,6 +271,7 @@ def do_plotting(originals, predictions, orig_names, pred_names, n, save_dir, avg
         pred_names = pred_names[:n // 2] + pred_names[-(n // 2):]
 
     create_score_plot(originals, predictions, orig_names, pred_names, save_path, avg, std, show_originals=True, title=title, rocauc=rocauc)
+    create_roc_plot(rocauc, save_path, y_true, y_probs)
 
 
 def do_scoring(orig, pred):
@@ -281,6 +283,19 @@ def do_scoring(orig, pred):
 def extract_true(names):
     return [1 if "anomaly" in n else 0 for n in names]
 
+def create_roc_plot(roc_curve, save_path, y_true, y_probs):
+    fpr, tpr, ts = roc_curve
+
+    score = do_scoring(y_true, y_probs)
+    model_name = remove_path(str(save_path))
+
+    plt.plot(fpr, tpr, label=f'auc={score}')
+    plt.xlabel('False Positive Rate')
+    plt.ylabel('True Positive Rate')
+    plt.legend(loc=4)
+    plt.title('ROC Curve')
+    plt.savefig(f'{save_path}/ROC_Curve{model_name}.png')
+    plt.close()
 
 if __name__ == '__main__':
     args = Arguments.analyser_arguments()
@@ -311,7 +326,9 @@ if __name__ == '__main__':
             std=stddev,
             pred_dir=args.images_dir,
             title=f'ROC Score {"{:.2f}".format(score)}' if args.known else f"Average score {average}, stddev {stddev}",
-            rocauc=roc_curve(y_true, y_score)
+            rocauc=roc_curve(y_true, y_score),
+            y_true=y_true,
+            y_probs=y_score
         )
     if args.detected_dir:
         remove_from_folder(

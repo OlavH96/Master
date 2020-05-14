@@ -111,11 +111,23 @@ def load_model_and_predict(model_path, num_predictions, path, max_x, max_y, mode
     if model_type == get_model_choice(Arguments.VAE) and not model:
 
         model = load_model(model_path, compile=False)#custom_objects={'custom_vae_loss': vae_loss(im_shape, log_var, mu)})
-
-        mu = model.get_layer('dense_3').output
-        log = model.get_layer('dense_4').output
-        
+        mu = model.get_layer('mu').output
+        log_var = model.get_layer('log').output
+        model.summary()
+        print(mu, log_var)
         model.compile(optimizer='rmsprop', loss=vae_loss(im_shape, log_var, mu))
+
+    if model_type == get_model_choice(Arguments.CONVVAE) and not model:
+
+        model = load_model(model_path, compile=False)#custom_objects={'custom_vae_loss': vae_loss(im_shape, log_var, mu)})
+        
+        encoder  = model.get_layer('encoder')
+        decoder  = model.get_layer('decoder')
+
+        mu = encoder.get_layer('mu').output
+        log_var = encoder.get_layer('log').output
+
+        model.compile(optimizer='adam', loss=vae_loss(im_shape, log_var, mu))
 
     if model_type != get_model_choice(Arguments.VAE) and not model:
         model = load_model(model_path)
@@ -137,6 +149,7 @@ def load_model_and_predict(model_path, num_predictions, path, max_x, max_y, mode
         anomaly = "anomaly" in filename
         extra = "_anomaly_" if anomaly else "_normal_"
         pred = model.predict(i)
+        print(pred.shape)
         
         for ii in i:
             if color_mode == 'HSV':
@@ -144,8 +157,9 @@ def load_model_and_predict(model_path, num_predictions, path, max_x, max_y, mode
                 ii = ii.convert("RGB")
                 ii = np.array(ii)
             plt.imsave(str(save_dir / f'orig{extra}{hashed}_{index}.png'), ii)
-        plt.imsave(str(save_dir / f'pred_temp.png'), pred[0], vmin=0, vmax=1)
 
+        plt.imsave(str(save_dir / f'temp.png'), pred[0], vmin=0, vmax=1)
+        print("input shape",i.shape)
         evaluate = model.evaluate(i, i)
         if type(evaluate) is list:
             evaluate = evaluate[0]
@@ -188,7 +202,7 @@ if __name__ == '__main__':
             num_predictions=args.num_predictions,
             max_x=args.max_x,
             max_y=args.max_y,
-            path=args.path,
+            path=args.pred_path if args.pred_path else args.path,
             model_type=args.model_type,
             model=model,
             color_mode=args.color
