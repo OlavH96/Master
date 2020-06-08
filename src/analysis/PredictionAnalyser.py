@@ -16,7 +16,8 @@ from skimage.transform import resize
 from src.util.Filenames import remove_path, extract_score, extract_model_name
 from src.analysis.PostProcessor import remove_from_folder
 from sklearn.metrics import roc_auc_score, roc_curve
-
+from sklearn.neighbors import KNeighborsClassifier
+from sklearn.model_selection import train_test_split
 
 def order_sorter():
     return lambda x: order(x[-1])
@@ -283,7 +284,7 @@ def do_scoring(orig, pred):
 def extract_true(names):
     return [1 if "anomaly" in n else 0 for n in names]
 
-def create_roc_plot(roc_curve, save_path, y_true, y_probs):
+def create_roc_plot(roc_curve, save_path, y_true, y_probs, extra=""):
     fpr, tpr, ts = roc_curve
 
     score = do_scoring(y_true, y_probs)
@@ -294,8 +295,29 @@ def create_roc_plot(roc_curve, save_path, y_true, y_probs):
     plt.ylabel('True Positive Rate')
     plt.legend(loc=4)
     plt.title('ROC Curve')
-    plt.savefig(f'{save_path}/ROC_Curve{model_name}.png')
+    plt.savefig(f'{save_path}/ROC_Curve_{extra}{"_" if extra else ""}{model_name}.png')
     plt.close()
+
+def knn_analysis(originals, orig_names, y_true, save_path):
+    
+    n = 1
+    
+    originals = [np.array(o).flatten() for o in originals]
+    
+    (trainRI, testRI, trainRL, testRL) = train_test_split(originals, y_true, test_size=0.5)
+    
+    print("[INFO] evaluating histogram accuracy...")
+    model = KNeighborsClassifier(n_neighbors=n)#, n_jobs=1)
+    model.fit(trainRI, trainRL)
+    acc = model.score(testRI, testRL)
+
+    y_score = model.predict_proba(testRI)
+    y_score = [y[0] for y in y_score]
+    
+    print("[INFO] accuracy: {:.2f}%".format(acc * 100))
+
+    rocauc=roc_curve(testRL, y_score)
+    create_roc_plot(rocauc, save_path, testRL, y_score, extra=f'knn_{n}')
 
 if __name__ == '__main__':
     args = Arguments.analyser_arguments()
@@ -341,3 +363,10 @@ if __name__ == '__main__':
             purge=args.purge,
             purge_overfitted=args.purge_overfitted
         )
+    if args.knn:
+        knn_analysis(
+            originals, 
+            orig_names,
+            y_true,
+            save_path=args.save_dir
+         )

@@ -23,6 +23,7 @@ from PIL import Image
 from src.train.Models import autoencoder, conv_autoencoder, vae_autoencoder, vae_loss, get_dummy_loss, from_argument_choice
 import src.train.Models as Models
 import src.util.Filenames as Filenames
+import math
 
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 
@@ -105,7 +106,7 @@ def train_on_images(epochs, max_x, max_y, path, model_type, model_name, arg_step
     return model
 
 
-def load_model_and_predict(model_path, num_predictions, path, max_x, max_y, model_type, model=None, color_mode="RGB"):
+def load_model_and_predict(model_path, num_predictions, path, max_x, max_y, model_type, model=None, color_mode="RGB", template_only=False):
     # vae_loss(image_shape=(max_x, max_y, 3), log_var=0.5, mu=0.5) 
     im_shape = (max_x, max_y, 3)
     if model_type == get_model_choice(Arguments.VAE) and not model:
@@ -158,7 +159,7 @@ def load_model_and_predict(model_path, num_predictions, path, max_x, max_y, mode
                 ii = np.array(ii)
             plt.imsave(str(save_dir / f'orig{extra}{hashed}_{index}.png'), ii)
 
-        plt.imsave(str(save_dir / f'temp.png'), pred[0], vmin=0, vmax=1)
+        #plt.imsave(str(save_dir / f'temp.png'), pred[0], vmin=0, vmax=1)
         print("input shape",i.shape)
         evaluate = model.evaluate(i, i)
         if type(evaluate) is list:
@@ -166,16 +167,35 @@ def load_model_and_predict(model_path, num_predictions, path, max_x, max_y, mode
         print(index, evaluate)
 
         for p in pred:
+            #print("prediction",p)
+            p = p / np.max(p)
             if color_mode == 'HSV':
                 p = Image.fromarray((p * 255).astype(np.uint8), 'HSV')
                 p = p.convert('RGB')
                 p = np.array(p)
-            plt.imsave(str(save_dir / f'pred{extra}{index}_{hashed}_{str(evaluate)}.png'), p, vmin=0, vmax=1)
+            if template_only:
+                # Hacky solution, oh well
+                template_path = './src/sign_detection/image_generation/images/signs/png/362.50/362_5.png'
+                im = Image.open(template_path)
+                im = im.convert('RGB')
+                im = im.resize(size=(64,64))
+                im = np.array(im)
+                score = image_mse(i[0], im)
+
+                plt.imsave(str(save_dir / f'pred{extra}{index}_{hashed}_{score}.png'), im)
+            else:
+                plt.imsave(str(save_dir / f'pred{extra}{index}_{hashed}_{str(evaluate)}.png'), p)
 
         index += 1
         if index == num_predictions:
             break
 
+def image_mse(imageA, imageB):
+
+    err = np.sum((imageA.astype("float") - imageB.astype("float")) ** 2)
+    err /= float(imageA.shape[0] * imageA.shape[1])
+    
+    return err
 
 if __name__ == '__main__':
 
@@ -205,5 +225,6 @@ if __name__ == '__main__':
             path=args.pred_path if args.pred_path else args.path,
             model_type=args.model_type,
             model=model,
-            color_mode=args.color
+            color_mode=args.color,
+            template_only=args.template
         )

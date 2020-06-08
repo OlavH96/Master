@@ -137,6 +137,13 @@ def anomaly_arguments():
         help='Color mode for loaded images.'
     )
     
+    parser.add_argument(
+        '--template',
+        action='store_true',
+        dest='template',
+        default=False,
+        help='Dont use model, compare with static image instead'
+    )
 
     return parser.parse_args()
 
@@ -206,6 +213,7 @@ def visualizer_arguments():
         default='./detected_images',
         help='Which directory to save detected images to.'
     )
+    
 
     return parser.parse_args()
 
@@ -311,6 +319,14 @@ def analyser_arguments():
         action='store_true',
         default=False,
         help='--images-dir arg is labeled data.'
+    )
+
+    parser.add_argument(
+        '--knn',
+        dest='knn',
+        action='store_true',
+        default=False,
+        help='Analyze with KNN'
     )
 
     parser.add_argument(
